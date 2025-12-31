@@ -23,6 +23,11 @@ interface TaskDetailPageProps {
 
 export default function TaskDetailPage({ params }: TaskDetailPageProps): React.ReactElement {
   const task = getTaskById(params.id);
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   if (!task) {
     notFound();
@@ -49,9 +54,9 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps): React.R
             <div className="flex items-center gap-3 text-sm text-text-secondary">
               <span className="font-mono">{task.task_id}</span>
               <span>•</span>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1" suppressHydrationWarning>
                 <Calendar className="h-3.5 w-3.5" />
-                Created {formatDistanceToNow(new Date(task.created_at), { addSuffix: true })}
+                Created {mounted ? formatDistanceToNow(new Date(task.created_at), { addSuffix: true }) : 'recently'}
               </div>
             </div>
           </div>
