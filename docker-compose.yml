@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # Next.js application (development mode with hot reload)
+  app:
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile.dev
+    container_name: dp-mvp-dev
+    restart: unless-stopped
+
+    # Port mapping: host:container
+    ports:
+      - "3000:3000"
+
+    # Volume mapping for hot reload
+    # This allows code changes to be reflected immediately
+    volumes:
+      - .:/app
+      - /app/node_modules     # Prevent overwriting node_modules
+      - /app/.next            # Prevent overwriting .next build cache
+
+    # Environment variables
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - WATCHPACK_POLLING=true  # Enable polling for file changes in Docker
+
+    # Load environment variables from .env.local
+    env_file:
+      - .env.local
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Networking
+    networks:
+      - dp-network
+
+networks:
+  dp-network:
+    driver: bridge
+
+# Optional: Add Supabase local development later
+# volumes:
+#   supabase-data:
