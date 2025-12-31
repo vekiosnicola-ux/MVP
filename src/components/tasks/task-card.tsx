@@ -79,6 +79,12 @@ function getPriorityColor(priority?: string): string {
 }
 
 export function TaskCard({ task }: TaskCardProps): React.ReactElement {
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   return (
     <motion.div variants={cardVariants} initial="rest" whileHover="hover">
       <Link href={`/tasks/${task.id}`}>
@@ -98,8 +104,8 @@ export function TaskCard({ task }: TaskCardProps): React.ReactElement {
               <h4 className="text-sm font-medium text-text-primary mb-1 truncate">
                 {task.description}
               </h4>
-              <p className="text-xs text-text-tertiary">
-                {formatDistanceToNow(new Date(task.created_at), { addSuffix: true })}
+              <p className="text-xs text-text-tertiary" suppressHydrationWarning>
+                {mounted ? formatDistanceToNow(new Date(task.created_at), { addSuffix: true }) : 'Loading...'}
               </p>
             </div>
             <Badge variant={getStatusVariant(task.status)}>
