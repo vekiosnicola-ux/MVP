@@ -17,14 +17,14 @@ services:
     # This allows code changes to be reflected immediately
     volumes:
       - .:/app
-      - /app/node_modules     # Prevent overwriting node_modules
-      - /app/.next            # Prevent overwriting .next build cache
+      - /app/node_modules # Prevent overwriting node_modules
+      - /app/.next # Prevent overwriting .next build cache
 
     # Environment variables
     environment:
       - NODE_ENV=development
       - PORT=3000
-      - WATCHPACK_POLLING=true  # Enable polling for file changes in Docker
+      - WATCHPACK_POLLING=true # Enable polling for file changes in Docker
 
     # Load environment variables from .env.local
     env_file:
@@ -32,13 +32,46 @@ services:
 
     # Health check
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
 
     # Networking
+    networks:
+      - dp-network
+
+  # Test service for running automated checks
+  test:
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile.dev
+    container_name: dp-mvp-test
+    environment:
+      - NODE_ENV=test
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run validate
+    networks:
+      - dp-network
+
+  # Vercel Deployment Service
+  deploy:
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile.dev
+    container_name: dp-mvp-deploy
+    environment:
+      - VERCEL_TOKEN=${VERCEL_TOKEN}
+      - VERCEL_ORG_ID=${VERCEL_ORG_ID}
+      - VERCEL_PROJECT_ID=${VERCEL_PROJECT_ID}
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.vercel
+    command: npm run deploy
     networks:
       - dp-network
 
