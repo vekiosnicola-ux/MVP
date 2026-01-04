@@ -31,8 +31,19 @@ This document explains how to run Dieta Positiva MVP using Docker for local deve
    ```bash
    docker-compose down
    ```
+   docker-compose down
+   ```
 
-## Development Mode
+## Running Tests
+
+You can run the project's validation suite (linting + type checking) inside Docker:
+
+```bash
+docker-compose run --rm test
+```
+
+This ensures that the code passes all quality checks in the same environment where it will be deployed.
+
 
 The development Docker setup includes:
 - ✅ Hot reload (code changes reflect immediately)
@@ -113,6 +124,28 @@ While Docker is great for local development, **Vercel is recommended for product
 | Cost | Free | Free tier available |
 | Setup | Manual | One command |
 | Best for | Development | Production |
+
+## Deploying to Vercel from Docker
+
+You can deploy directly from the Docker container using the verified environment. We use the `--prebuilt` flow to build artifacts inside the Docker container before uploading.
+
+1.  **Get a Vercel Token**: Create one in your Vercel Account Settings > Tokens.
+2.  **Add to `.env.local`**:
+    ```bash
+    VERCEL_TOKEN=your_token_here
+    VERCEL_ORG_ID=your_org_id_here      # Required for 'vercel build'
+    VERCEL_PROJECT_ID=your_project_id   # Required for 'vercel build'
+    ```
+3.  **Run Deployment**:
+    ```bash
+    docker-compose run --rm deploy
+    ```
+    This runs `vercel build` locally (in container) and then `vercel deploy --prebuilt`. This ensures dependencies and build output match the container environment exactly.
+
+> **Why use Docker for Vercel?**
+> Vercel does not support running Docker containers directly. We use Docker here to ensure a consistent **build environment** across all developer machines. This guarantees that `vercel build` runs with the exact same Node version and dependencies for everyone, eliminating "works on my machine" issues before deploying the artifacts to Vercel.
+
+
 
 ## Troubleshooting
 

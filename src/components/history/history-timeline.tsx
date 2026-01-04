@@ -65,7 +65,7 @@ export function HistoryTimeline({ events }: HistoryTimelineProps): React.ReactEl
           <div key={dateKey}>
             {/* Date Divider */}
             <div className="flex items-center gap-4 mb-4">
-              <h3 className="text-lg font-semibold text-text-primary">
+              <h3 className="text-lg font-semibold text-text-primary" suppressHydrationWarning>
                 {isToday ? 'Today' : format(date, 'EEEE, MMM d')}
               </h3>
               <div className="flex-1 h-px bg-border-primary" />

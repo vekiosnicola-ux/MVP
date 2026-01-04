@@ -15,7 +15,9 @@
     "test": "echo \"Tests coming soon\"",
     "docker:dev": "docker-compose up",
     "docker:build": "docker build -f .docker/Dockerfile.prod -t dp-mvp .",
-    "validate": "npm run type-check && npm run lint"
+    "validate": "npm run type-check && npm run lint",
+    "build:vercel": "vercel build",
+    "deploy": "vercel build && vercel deploy --prebuilt"
   },
   "dependencies": {
     "next": "^14.2.0",
@@ -47,7 +49,8 @@
     "tailwindcss": "^3.4.0",
     "typescript": "^5.0.0",
     "eslint": "^8.57.0",
-    "eslint-config-next": "^14.2.0"
+    "eslint-config-next": "^14.2.0",
+    "vercel": "^33.0.0"
   },
   "engines": {
     "node": ">=18.0.0",
