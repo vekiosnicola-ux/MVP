@@ -2,11 +2,11 @@
 
 import { format } from 'date-fns';
 import { motion } from 'framer-motion';
-import { CheckCircle, XCircle, FileText, Plus } from 'lucide-react';
+import { CheckCircle, XCircle, FileText, Plus, Play, AlertCircle } from 'lucide-react';
 import * as React from 'react';
 
 import { Card } from '@/components/ui/card';
-import type { HistoryEvent } from '@/lib/mock-data';
+import type { HistoryEvent } from '@/interfaces/history';
 
 
 interface EventCardProps {
@@ -21,10 +21,16 @@ function getEventIcon(type: string): React.ReactElement {
       return <XCircle className="h-5 w-5 text-accent-danger" />;
     case 'task_completed':
       return <CheckCircle className="h-5 w-5 text-accent-info" />;
+    case 'task_failed':
+      return <AlertCircle className="h-5 w-5 text-accent-danger" />;
     case 'task_created':
       return <Plus className="h-5 w-5 text-accent-primary" />;
     case 'decision_made':
       return <FileText className="h-5 w-5 text-accent-secondary" />;
+    case 'execution_started':
+      return <Play className="h-5 w-5 text-accent-warning" />;
+    case 'execution_completed':
+      return <CheckCircle className="h-5 w-5 text-accent-success" />;
     default:
       return <FileText className="h-5 w-5 text-text-secondary" />;
   }

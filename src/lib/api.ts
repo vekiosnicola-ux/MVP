@@ -280,3 +280,28 @@ export const healthApi = {
   },
 };
 
+/**
+ * History API
+ */
+export const historyApi = {
+  /**
+   * List history events, optionally filtered by type or taskId
+   */
+  list: async (filters?: { type?: string; taskId?: string }): Promise<Array<{
+    id: string;
+    timestamp: string;
+    type: string;
+    title: string;
+    description?: string;
+    taskId?: string;
+    metadata?: Record<string, unknown>;
+  }>> => {
+    const params = new URLSearchParams();
+    if (filters?.type) params.append('type', filters.type);
+    if (filters?.taskId) params.append('taskId', filters.taskId);
+
+    const query = params.toString();
+    return fetchApi(`/history${query ? `?${query}` : ''}`);
+  },
+};
+
