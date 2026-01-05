@@ -6,10 +6,11 @@ import * as React from 'react';
 import { StatCard } from '@/components/stats/stat-card';
 import { TaskList } from '@/components/tasks/task-list';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import type { TaskRow } from '@/interfaces/task';
 import { tasksApi } from '@/lib/api';
 
 export default function DashboardPage(): React.ReactElement {
-  const [tasks, setTasks] = React.useState<any[]>([]);
+  const [tasks, setTasks] = React.useState<TaskRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 

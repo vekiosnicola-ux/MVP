@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+
 import { getSupabaseClient } from '@/core/db/client';
 
 export async function GET() {
@@ -31,7 +32,7 @@ export async function GET() {
       status: 'error',
       message: err.message,
       stack: err.stack,
-      cause: (err as any).cause
+      cause: err.cause
     }, { status: 500 });
   }
 }

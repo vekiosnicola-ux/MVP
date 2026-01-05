@@ -1,8 +1,8 @@
+import type { Decision } from '@/core/validators/decision';
 import type { DecisionRow } from '@/interfaces/decision';
 import type { PlanRow } from '@/interfaces/plan';
 import type { ResultRow } from '@/interfaces/result';
 import type { TaskRow, TaskStatus, TaskType } from '@/interfaces/task';
-import type { Decision } from '@/core/validators/decision';
 
 /**
  * API Client for Aura MVP backend
@@ -45,7 +45,7 @@ export const tasksApi = {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
     if (filters?.type) params.append('type', filters.type);
-    
+
     const query = params.toString();
     return fetchApi<TaskRow[]>(`/tasks${query ? `?${query}` : ''}`);
   },
@@ -98,7 +98,7 @@ export const plansApi = {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
     if (filters?.taskId) params.append('taskId', filters.taskId);
-    
+
     const query = params.toString();
     return fetchApi<PlanRow[]>(`/plans${query ? `?${query}` : ''}`);
   },
@@ -151,7 +151,7 @@ export const decisionsApi = {
     const params = new URLSearchParams();
     if (filters?.category) params.append('category', filters.category);
     if (filters?.taskId) params.append('taskId', filters.taskId);
-    
+
     const query = params.toString();
     return fetchApi<DecisionRow[]>(`/decisions${query ? `?${query}` : ''}`);
   },
@@ -194,7 +194,7 @@ export const resultsApi = {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
     if (filters?.taskId) params.append('taskId', filters.taskId);
-    
+
     const query = params.toString();
     return fetchApi<ResultRow[]>(`/results${query ? `?${query}` : ''}`);
   },

@@ -21,20 +21,7 @@ export default function CreateTaskPage(): React.ReactElement {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const formData = new FormData(e.currentTarget);
-    const taskData = {
-      type: formData.get('type'),
-      description: formData.get('description'),
-      repository: formData.get('repository'),
-      branch: formData.get('branch'),
-      maxDuration: parseInt(formData.get('maxDuration') as string, 10),
-      priority: formData.get('priority'),
-      background: formData.get('background'),
-      requirements: formData.get('requirements'),
-      constraints: formData.get('constraints'),
-    };
 
-    console.log('Creating task:', taskData);
 
     await new Promise(resolve => setTimeout(resolve, 1000));
 

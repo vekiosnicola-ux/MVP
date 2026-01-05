@@ -9,10 +9,10 @@ import { DecisionPanel } from '@/components/proposals/decision-panel';
 import { ProposalCard } from '@/components/proposals/proposal-card';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import type { Decision } from '@/core/validators/decision';
 import type { PlanRow } from '@/interfaces/plan';
 import type { TaskRow } from '@/interfaces/task';
 import { plansApi, tasksApi, workflowApi } from '@/lib/api';
-import type { Decision } from '@/core/validators/decision';
 
 /**
  * Convert PlanRow to Decision Proposal format
@@ -59,7 +59,10 @@ export default function ApprovalQueuePage(): React.ReactElement {
         );
         setAwaitingTasks(awaiting);
         if (awaiting.length > 0 && !selectedTaskId) {
-          setSelectedTaskId(awaiting[0].task_id);
+          const firstTask = awaiting[0];
+          if (firstTask) {
+            setSelectedTaskId(firstTask.task_id);
+          }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load tasks');
@@ -104,6 +107,9 @@ export default function ApprovalQueuePage(): React.ReactElement {
     try {
       setSubmitting(true);
       const selectedPlan = plans[selectedOption];
+      if (!selectedPlan) {
+        throw new Error('Selected plan not found');
+      }
 
       // Convert plans to proposals format
       const proposals = plans.map(planToProposal);
@@ -217,11 +223,10 @@ export default function ApprovalQueuePage(): React.ReactElement {
                 setSelectedTaskId(task.task_id);
                 setSelectedPlanIndex(0);
               }}
-              className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all ${
-                selectedTaskId === task.task_id
-                  ? 'bg-accent-primary text-white'
-                  : 'bg-bg-tertiary text-text-secondary hover:bg-bg-hover'
-              }`}
+              className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all ${selectedTaskId === task.task_id
+                ? 'bg-accent-primary text-white'
+                : 'bg-bg-tertiary text-text-secondary hover:bg-bg-hover'
+                }`}
             >
               {task.description.slice(0, 40)}...
             </button>
@@ -281,12 +286,14 @@ export default function ApprovalQueuePage(): React.ReactElement {
 
       {/* Decision Panel */}
       {plans.length > 0 && (
-        <DecisionPanel
-          taskId={selectedTask?.task_id ?? ''}
-          proposalCount={plans.length}
-          onApprove={handleApprove}
-          onCancel={handleCancel}
-        />
+        <div className={submitting ? 'opacity-50 pointer-events-none' : ''}>
+          <DecisionPanel
+            taskId={selectedTask?.task_id ?? ''}
+            proposalCount={plans.length}
+            onApprove={handleApprove}
+            onCancel={handleCancel}
+          />
+        </div>
       )}
     </div>
   );
