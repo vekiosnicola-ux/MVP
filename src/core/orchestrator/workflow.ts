@@ -47,9 +47,11 @@ export class WorkflowEngine {
   /**
    * Process a task: generate proposals and transition to awaiting_human_decision
    */
-  async processTask(taskId: string): Promise<TransitionResult> {
+  async processTask(taskId: string, feedback?: string): Promise<TransitionResult> {
     const { getTask } = await import('../db/tasks');
     const { proposalGenerator } = await import('../agents/proposal-generator');
+
+    console.log('[WorkflowEngine] processTask started for:', taskId, feedback ? 'with feedback' : '');
 
     const taskRow = await getTask(taskId);
     if (!taskRow) throw new Error('Task not found');
@@ -67,12 +69,27 @@ export class WorkflowEngine {
       metadata: taskRow.metadata || undefined
     };
 
+    console.log('[WorkflowEngine] Generating proposals for task:', task.id);
+
     // Generate proposals (AI work)
-    const plans = await proposalGenerator.generateProposals(task);
+    const plans = await proposalGenerator.generateProposals(task, feedback);
+
+    console.log('[WorkflowEngine] Generated', plans.length, 'plans');
+    console.log('[WorkflowEngine] First plan ID:', plans[0]?.id);
 
     // Save plans to DB
     for (const plan of plans) {
-      await createPlan(plan);
+      console.log('[WorkflowEngine] Saving plan:', plan.id);
+      console.log('[WorkflowEngine] Plan steps:', plan.steps.length);
+      console.log('[WorkflowEngine] First step:', JSON.stringify(plan.steps[0], null, 2));
+      try {
+        await createPlan(plan);
+        console.log('[WorkflowEngine] Plan saved:', plan.id);
+      } catch (saveErr) {
+        const errMsg = saveErr instanceof Error ? saveErr.message : String(saveErr);
+        console.error('[WorkflowEngine] Failed to save plan:', plan.id, '- Error:', errMsg);
+        throw saveErr;
+      }
     }
 
     // Transition to awaiting_human_decision

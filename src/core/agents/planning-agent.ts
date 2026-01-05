@@ -12,6 +12,7 @@ import { getRelevantOverridesWithSimilarity, type ScoredOverride } from '../db/o
 import { getPatternStats, getMostSuccessfulApproach, type PatternStats } from '../db/patterns';
 
 import { claudeClient } from './claude-client';
+import { groqClient } from './groq-client';
 
 // ============================================================================
 // Types
@@ -23,10 +24,10 @@ interface ProposalResponse {
   steps: Array<{
     agent: string;
     action: string;
-    inputs: string[];
-    outputs: string[];
-    validationCommand: string;
-    successCriteria: string;
+    inputs: string | string[];  // Groq may return string or array
+    outputs: string | string[]; // Groq may return string or array
+    validationCommand?: string;
+    successCriteria?: string;
   }>;
   estimatedDuration: number;
   risks: Array<{
@@ -118,13 +119,17 @@ interface PlanningContext {
   overrides: ScoredOverride[];
   patternStats: PatternStats | null;
   bestApproach: string | null;
+  feedback?: string;
 }
 
 function createPlanningPrompt(task: Task, context: PlanningContext): string {
   const overridesContext = formatOverridesContext(context.overrides);
   const patternContext = formatPatternContext(context.patternStats, context.bestApproach);
+  const feedbackContext = context.feedback ? `\nUSER FEEDBACK ON PREVIOUS PROPOSALS:\n${context.feedback}\nPlease adjust your new proposals to address this feedback.\n` : '';
 
-  return `Generate 2 implementation proposals for this task:
+  return `You are a Senior Coder Agent. Your goal is to take initiative and propose a complete, high-quality development plan.
+  
+Generate 2 detailed implementation proposals for this task:
 
 TASK DETAILS:
 - Type: ${task.type}
@@ -139,14 +144,14 @@ CONSTRAINTS:
 - Requires approval: ${task.constraints.requiresApproval}
 - Breaking changes allowed: ${task.constraints.breakingChangesAllowed}
 - Min test coverage: ${task.constraints.testCoverageMin}%
-${overridesContext}${patternContext}
+${overridesContext}${patternContext}${feedbackContext}
 Generate exactly 2 proposals:
-1. A STANDARD approach - thorough, safe, follows best practices
-2. A FAST-TRACK approach - minimal viable implementation, faster delivery
+1. A STANDARD approach - thorough, safe, follows best practices. This is your primary recommendation.
+2. A FAST-TRACK approach - minimal viable implementation, faster delivery.
 
 For each proposal, provide:
 - approach: A short name for the approach (e.g., "Standard Implementation", "Fast-Track MVP")
-- reasoning: Why this approach is suitable (2-3 sentences)
+- reasoning: Why this approach is suitable, including how it addresses specific task requirements and any previous feedback. (3-4 sentences)
 - steps: Array of implementation steps with:
   - agent: Which agent handles this (orchestrator|architect|developer|database|reviewer|tester|devops|documenter)
   - action: What specifically to do
@@ -189,12 +194,13 @@ export class PlanningAgent {
    * Generate implementation plans for a task
    * Uses similarity-based override matching and historical pattern data
    */
-  async generatePlans(task: Task): Promise<Plan[]> {
+  async generatePlans(task: Task, feedback?: string): Promise<Plan[]> {
     // Build planning context from historical data
     const planningContext: PlanningContext = {
       overrides: [],
       patternStats: null,
       bestApproach: null,
+      feedback,
     };
 
     // Fetch relevant human overrides using similarity matching
@@ -231,28 +237,53 @@ export class PlanningAgent {
       console.warn('[PlanningAgent] Could not fetch pattern stats:', error);
     }
 
-    // Check if Claude is configured
-    if (!claudeClient.isConfigured()) {
-      console.warn('[PlanningAgent] Claude API not configured, using mock plans');
+    // Check which AI provider is configured (prefer Groq - it's free)
+    const useGroq = groqClient.isConfigured();
+    const useClaude = claudeClient.isConfigured();
+
+    if (!useGroq && !useClaude) {
+      console.warn('[PlanningAgent] No AI provider configured, using mock plans');
+      console.warn('[PlanningAgent] Set GROQ_API_KEY (free) or ANTHROPIC_API_KEY in .env.local');
       return this.generateMockPlans(task);
     }
 
     try {
       const prompt = createPlanningPrompt(task, planningContext);
 
-      const response = await claudeClient.generateJSON<GeneratedProposals>(prompt, {
-        system: SYSTEM_PROMPT,
-        maxTokens: 4096,
-        temperature: 0.7,
-      });
+      let response: GeneratedProposals;
 
-      return response.proposals.map((proposal) =>
-        this.convertToPlans(proposal, task)
-      );
+      if (useGroq) {
+        console.log('[PlanningAgent] Using Groq (Llama 3.3 70B) - FREE');
+        response = await groqClient.generateJSON<GeneratedProposals>(prompt, {
+          system: SYSTEM_PROMPT,
+          maxTokens: 4096,
+          temperature: 0.7,
+        });
+      } else {
+        console.log('[PlanningAgent] Using Claude API');
+        response = await claudeClient.generateJSON<GeneratedProposals>(prompt, {
+          system: SYSTEM_PROMPT,
+          maxTokens: 4096,
+          temperature: 0.7,
+        });
+      }
+
+      console.log('[PlanningAgent] Got proposals:', response.proposals.length);
+      console.log('[PlanningAgent] First proposal steps:', response.proposals[0]?.steps?.length);
+
+      return response.proposals.map((proposal, idx) => {
+        console.log(`[PlanningAgent] Converting proposal ${idx + 1}:`, proposal.approach);
+        try {
+          return this.convertToPlans(proposal, task);
+        } catch (convErr) {
+          console.error(`[PlanningAgent] Conversion error for proposal ${idx + 1}:`, convErr);
+          throw convErr;
+        }
+      });
     } catch (error) {
       console.error('[PlanningAgent] Error generating plans:', error);
 
-      // Fall back to mock plans if Claude fails
+      // Fall back to mock plans if AI fails
       if (this.useMockFallback) {
         console.warn('[PlanningAgent] Falling back to mock plans');
         return this.generateMockPlans(task);
@@ -275,17 +306,27 @@ export class PlanningAgent {
   private convertToPlans(proposal: ProposalResponse, task: Task): Plan {
     const planId = `plan-${crypto.randomUUID()}`;
 
+    // Format step number as 3-digit string (001, 002, etc.)
+    const formatStepId = (n: number) => `step-${String(n).padStart(3, '0')}`;
+
+    // Helper to ensure array format (Groq sometimes returns strings)
+    const toArray = (val: string | string[] | undefined): string[] => {
+      if (!val) return [];
+      if (Array.isArray(val)) return val;
+      return [val];
+    };
+
     const steps: PlanStep[] = proposal.steps.map((step, stepIndex) => ({
-      id: `step-${stepIndex + 1}`,
+      id: formatStepId(stepIndex + 1),
       agent: this.validateAgentType(step.agent),
       action: step.action,
-      inputs: step.inputs,
-      outputs: step.outputs,
+      inputs: toArray(step.inputs),
+      outputs: toArray(step.outputs),
       validation: {
-        command: step.validationCommand,
-        successCriteria: step.successCriteria,
+        command: step.validationCommand || 'echo "No validation"',
+        successCriteria: step.successCriteria || 'Step completed',
       },
-      dependencies: stepIndex > 0 ? [`step-${stepIndex}`] : undefined,
+      dependencies: stepIndex > 0 ? [formatStepId(stepIndex)] : undefined,
     }));
 
     const risks: Risk[] = proposal.risks.map((risk) => ({

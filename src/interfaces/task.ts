@@ -23,6 +23,9 @@ export interface TaskMetadata {
   labels?: string[];
 }
 
+// System 3 target system type
+export type TargetSystem = 'external' | 'self';
+
 export interface Task {
   id: string;
   version: string;
@@ -31,6 +34,12 @@ export interface Task {
   context: TaskContext;
   constraints: TaskConstraints;
   metadata?: TaskMetadata;
+
+  // System 3 extensions (optional)
+  intentStatement?: string;      // Natural language intent (from chat)
+  targetSystem?: TargetSystem;   // 'external' = target code, 'self' = modify Aura
+  mustNotBreak?: string[];       // Explicit constraints from human
+  chatSessionId?: string;        // Link to Meta-Prompter conversation
 }
 
 export interface TaskRow {
@@ -45,4 +54,10 @@ export interface TaskRow {
   status: TaskStatus;
   created_at: string;
   updated_at: string;
+
+  // System 3 extensions
+  intent_statement?: string | null;
+  target_system?: TargetSystem | null;
+  must_not_break?: string[] | null;
+  chat_session_id?: string | null;
 }

@@ -21,6 +21,9 @@ const TaskMetadataSchema = z.object({
   labels: z.array(z.string()).optional()
 }).optional();
 
+// System 3 target system type
+const TargetSystemSchema = z.enum(['external', 'self']).default('external');
+
 export const TaskSchema = z.object({
   id: z.string().regex(/^task-[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}$/),
   version: z.string().regex(/^\d+\.\d+\.\d+$/),
@@ -28,7 +31,13 @@ export const TaskSchema = z.object({
   description: z.string().min(10).max(500),
   context: TaskContextSchema,
   constraints: TaskConstraintsSchema,
-  metadata: TaskMetadataSchema
+  metadata: TaskMetadataSchema,
+
+  // System 3 extensions (all optional)
+  intentStatement: z.string().min(10).max(1000).optional(),
+  targetSystem: TargetSystemSchema.optional(),
+  mustNotBreak: z.array(z.string()).optional(),
+  chatSessionId: z.string().uuid().optional(),
 });
 
 export type Task = z.infer<typeof TaskSchema>;
