@@ -1,33 +1,175 @@
 'use client';
 
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
 import { DecisionPanel } from '@/components/proposals/decision-panel';
 import { ProposalCard } from '@/components/proposals/proposal-card';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { getTasksAwaitingApproval, getPlansByTaskId } from '@/lib/mock-data';
+import type { Decision } from '@/core/validators/decision';
+import type { PlanRow } from '@/interfaces/plan';
+import type { TaskRow } from '@/interfaces/task';
+import { plansApi, tasksApi, workflowApi } from '@/lib/api';
+
+/**
+ * Convert PlanRow to Decision Proposal format
+ */
+function planToProposal(plan: PlanRow): Decision['proposals'][0] {
+  return {
+    approach: plan.approach,
+    reasoning: plan.reasoning,
+    tradeoffs: {
+      pros: [], // PlanRow doesn't have pros - would need to derive from context
+      cons: [], // PlanRow doesn't have cons - would need to derive from context
+      risks: plan.risks?.map(r => r.description) || [],
+    },
+  };
+}
+
+/**
+ * Generate decision ID in correct format
+ */
+function generateDecisionId(): string {
+  const uuid = crypto.randomUUID().replace(/-/g, '');
+  return `decision-${uuid.substring(0, 8)}-${uuid.substring(8, 12)}-${uuid.substring(12, 16)}-${uuid.substring(16, 20)}-${uuid.substring(20, 32)}`;
+}
 
 export default function ApprovalQueuePage(): React.ReactElement {
-  const awaitingTasks = getTasksAwaitingApproval();
-  const [selectedTaskId, setSelectedTaskId] = React.useState<string | null>(
-    awaitingTasks.length > 0 ? awaitingTasks[0]?.task_id ?? null : null
-  );
+  const router = useRouter();
+  const [awaitingTasks, setAwaitingTasks] = React.useState<TaskRow[]>([]);
+  const [plans, setPlans] = React.useState<PlanRow[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [selectedTaskId, setSelectedTaskId] = React.useState<string | null>(null);
   const [selectedPlanIndex, setSelectedPlanIndex] = React.useState<number>(0);
 
+  // Load tasks awaiting approval
+  React.useEffect(() => {
+    async function loadTasks() {
+      try {
+        setLoading(true);
+        setError(null);
+        const allTasks = await tasksApi.list();
+        const awaiting = allTasks.filter(
+          (task) => task.status === 'planning' || task.status === 'awaiting_human_decision'
+        );
+        setAwaitingTasks(awaiting);
+        if (awaiting.length > 0 && !selectedTaskId) {
+          const firstTask = awaiting[0];
+          if (firstTask) {
+            setSelectedTaskId(firstTask.task_id);
+          }
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load tasks');
+        console.error('Error loading tasks:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadTasks();
+  }, [selectedTaskId]);
+
+  // Load plans for selected task
+  React.useEffect(() => {
+    async function loadPlans() {
+      if (!selectedTaskId) {
+        setPlans([]);
+        return;
+      }
+
+      try {
+        const taskPlans = await plansApi.list({ taskId: selectedTaskId });
+        setPlans(taskPlans);
+        setSelectedPlanIndex(0);
+      } catch (err) {
+        console.error('Error loading plans:', err);
+        setPlans([]);
+      }
+    }
+
+    loadPlans();
+  }, [selectedTaskId]);
+
   const selectedTask = awaitingTasks.find((task) => task.task_id === selectedTaskId);
-  const plans = selectedTaskId ? getPlansByTaskId(selectedTaskId) : [];
 
   const handleApprove = async (selectedOption: number, rationale: string): Promise<void> => {
-    console.log('Approving decision:', { selectedTaskId, selectedOption, rationale });
-    alert(`Decision approved!\nTask: ${selectedTaskId}\nProposal: ${selectedOption + 1}\nRationale: ${rationale}`);
+    if (!selectedTaskId || selectedOption < 0 || selectedOption >= plans.length) {
+      alert('Invalid selection. Please select a valid proposal.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const selectedPlan = plans[selectedOption];
+      if (!selectedPlan) {
+        throw new Error('Selected plan not found');
+      }
+
+      // Convert plans to proposals format
+      const proposals = plans.map(planToProposal);
+
+      // Create decision object
+      const decision: Decision = {
+        id: generateDecisionId(),
+        taskId: selectedTaskId,
+        planId: selectedPlan.plan_id,
+        category: 'architecture', // Default category - could be made configurable
+        proposals,
+        selectedOption,
+        rationale,
+      };
+
+      // Submit decision via workflow API
+      await workflowApi.approvePlan(decision, 'Virgilio');
+
+      // Redirect to dashboard
+      router.push('/');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to approve plan';
+      alert(`Error: ${errorMessage}`);
+      console.error('Error approving plan:', err);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleCancel = (): void => {
-    console.log('Decision cancelled');
+    router.push('/');
   };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="text-center py-12">
+          <p className="text-text-secondary">Loading approval queue...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card className="border-accent-danger">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3 text-accent-danger">
+              <AlertCircle className="h-5 w-5" />
+              <div>
+                <h3 className="font-semibold">Error loading tasks</h3>
+                <p className="text-sm text-text-secondary">{error}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (awaitingTasks.length === 0) {
     return (
@@ -81,11 +223,10 @@ export default function ApprovalQueuePage(): React.ReactElement {
                 setSelectedTaskId(task.task_id);
                 setSelectedPlanIndex(0);
               }}
-              className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all ${
-                selectedTaskId === task.task_id
-                  ? 'bg-accent-primary text-white'
-                  : 'bg-bg-tertiary text-text-secondary hover:bg-bg-hover'
-              }`}
+              className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all ${selectedTaskId === task.task_id
+                ? 'bg-accent-primary text-white'
+                : 'bg-bg-tertiary text-text-secondary hover:bg-bg-hover'
+                }`}
             >
               {task.description.slice(0, 40)}...
             </button>
@@ -100,7 +241,7 @@ export default function ApprovalQueuePage(): React.ReactElement {
             <CardTitle>{selectedTask.description}</CardTitle>
             <div className="flex items-center gap-3 mt-2">
               <Badge>{selectedTask.type}</Badge>
-              {selectedTask.metadata.priority && (
+              {selectedTask.metadata?.priority && (
                 <Badge variant={selectedTask.metadata.priority === 'high' ? 'warning' : 'default'}>
                   {selectedTask.metadata.priority} priority
                 </Badge>
@@ -145,12 +286,14 @@ export default function ApprovalQueuePage(): React.ReactElement {
 
       {/* Decision Panel */}
       {plans.length > 0 && (
-        <DecisionPanel
-          taskId={selectedTask?.task_id ?? ''}
-          proposalCount={plans.length}
-          onApprove={handleApprove}
-          onCancel={handleCancel}
-        />
+        <div className={submitting ? 'opacity-50 pointer-events-none' : ''}>
+          <DecisionPanel
+            taskId={selectedTask?.task_id ?? ''}
+            proposalCount={plans.length}
+            onApprove={handleApprove}
+            onCancel={handleCancel}
+          />
+        </div>
       )}
     </div>
   );

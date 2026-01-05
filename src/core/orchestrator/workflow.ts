@@ -69,8 +69,10 @@ export class WorkflowEngine {
     const statusMap: Record<string, WorkflowState> = {
       'pending': 'task_created',
       'planning': 'awaiting_proposals',
+      'awaiting_human_decision': 'awaiting_human_decision',
       'approved': 'plan_approved',
       'executing': 'executing',
+      'awaiting_verification': 'awaiting_verification',
       'completed': 'completed',
       'failed': 'failed'
     };

@@ -3,13 +3,13 @@
 import { motion } from 'framer-motion';
 import * as React from 'react';
 
-import type { MockTask } from '@/lib/mock-data';
+import type { TaskRow } from '@/interfaces/task';
 
 import { TaskCard } from './task-card';
 
 
 interface TaskListProps {
-  tasks: MockTask[];
+  tasks: TaskRow[];
 }
 
 const containerVariants = {
