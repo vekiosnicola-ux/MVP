@@ -8,12 +8,17 @@ export async function POST(request: Request) {
     const body = await request.json();
     const task = validateTask(body);
 
-    const taskId = await workflowEngine.createTaskWorkflow(task);
+    const { taskId, transition } = await workflowEngine.createTaskWorkflow(task);
 
     return NextResponse.json({
       taskId,
-      status: 'task_created',
-      message: 'Task created, awaiting AI proposals'
+      status: transition.newState,
+      message: 'Task created, awaiting AI proposals',
+      transition: {
+        previousState: transition.previousState,
+        newState: transition.newState,
+        action: transition.action,
+      }
     }, { status: 201 });
   } catch (error) {
     return NextResponse.json(

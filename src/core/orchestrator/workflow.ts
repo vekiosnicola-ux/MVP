@@ -8,23 +8,51 @@ import { Result } from '../validators/result';
 import { Task } from '../validators/task';
 
 import { qualityGateExecutor } from './quality-gates';
+import {
+  stateMachine,
+  taskStatusToWorkflowState,
+  workflowStateToTaskStatus,
+  type TransitionContext,
+  type TransitionResult,
+} from './state-machine';
 import { WorkflowState } from './types';
 
 export class WorkflowEngine {
-  async createTaskWorkflow(task: Task): Promise<string> {
+  /**
+   * Create a new task and transition to planning state
+   */
+  async createTaskWorkflow(task: Task): Promise<{ taskId: string; transition: TransitionResult }> {
+    // Create task in DB
     await createTask(task);
 
+    // Transition: null → task_created → awaiting_proposals
+    const createResult = await this.executeTransition(null, 'CREATE', { taskId: task.id });
+    if (!createResult.success) {
+      throw new Error(`Failed to create task: ${createResult.error}`);
+    }
+
+    const planningResult = await this.executeTransition('task_created', 'START_PLANNING', { taskId: task.id });
+    if (!planningResult.success) {
+      throw new Error(`Failed to start planning: ${planningResult.error}`);
+    }
+
+    // Update DB status
     await updateTaskStatus(task.id, 'planning');
 
-    return task.id;
+    return { taskId: task.id, transition: planningResult };
   }
 
-  async processTask(taskId: string): Promise<void> {
+  /**
+   * Process a task: generate proposals and transition to awaiting_human_decision
+   */
+  async processTask(taskId: string): Promise<TransitionResult> {
     const { getTask } = await import('../db/tasks');
     const { proposalGenerator } = await import('../agents/proposal-generator');
 
     const taskRow = await getTask(taskId);
     if (!taskRow) throw new Error('Task not found');
+
+    const currentState = taskStatusToWorkflowState(taskRow.status);
 
     // Transform TaskRow to Task interface
     const task: Task = {
@@ -37,10 +65,7 @@ export class WorkflowEngine {
       metadata: taskRow.metadata || undefined
     };
 
-    // Simulate AI thinking delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Generate proposals
+    // Generate proposals (AI work)
     const plans = await proposalGenerator.generateProposals(task);
 
     // Save plans to DB
@@ -48,34 +73,104 @@ export class WorkflowEngine {
       await createPlan(plan);
     }
 
-    // Transition task to awaiting approval
-    await updateTaskStatus(taskId, 'awaiting_human_decision');
+    // Transition to awaiting_human_decision
+    const result = await this.executeTransition(currentState, 'PROPOSALS_READY', { taskId });
+    if (result.success) {
+      await updateTaskStatus(taskId, 'awaiting_human_decision');
+    }
+
+    return result;
   }
 
+  /**
+   * Record human decision (approve or reject)
+   */
+  async recordDecision(decision: Decision, decidedBy?: string): Promise<TransitionResult> {
+    const { getTask } = await import('../db/tasks');
+    const taskRow = await getTask(decision.taskId);
+    if (!taskRow) throw new Error('Task not found');
+
+    const currentState = taskStatusToWorkflowState(taskRow.status);
+
+    // Save decision to DB
+    await createDecision(decision, decidedBy);
+
+    // Determine if approved or rejected based on decision
+    const isApproval = decision.selectedOption >= 0 && decision.planId;
+
+    const context: TransitionContext = {
+      taskId: decision.taskId,
+      planId: decision.planId ?? undefined,
+      reason: decision.rationale,
+      metadata: { decidedBy },
+    };
+
+    let result: TransitionResult;
+
+    if (isApproval) {
+      result = await this.executeTransition(currentState, 'APPROVE', context);
+      if (result.success) {
+        await updateTaskStatus(decision.taskId, 'approved');
+        if (decision.planId) {
+          await updatePlanStatus(decision.planId, 'approved');
+        }
+      }
+    } else {
+      result = await this.executeTransition(currentState, 'REJECT', context);
+      if (result.success) {
+        await updateTaskStatus(decision.taskId, 'rejected');
+        if (decision.planId) {
+          await updatePlanStatus(decision.planId, 'rejected');
+        }
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Submit a proposal (legacy method - use recordDecision instead)
+   */
   async submitProposal(taskId: string, plan: Plan): Promise<string> {
     await createPlan(plan);
-
     await updateTaskStatus(taskId, 'approved');
-
     return plan.id;
   }
 
-  async recordDecision(decision: Decision, decidedBy?: string): Promise<void> {
-    await createDecision(decision, decidedBy);
+  /**
+   * Start executing an approved plan
+   */
+  async executeApprovedPlan(planId: string, taskId: string): Promise<TransitionResult> {
+    const { getTask } = await import('../db/tasks');
+    const taskRow = await getTask(taskId);
+    if (!taskRow) throw new Error('Task not found');
 
-    await updateTaskStatus(decision.taskId, 'approved');
+    const currentState = taskStatusToWorkflowState(taskRow.status);
 
-    if (decision.planId) {
-      await updatePlanStatus(decision.planId, 'approved');
+    const result = await this.executeTransition(currentState, 'START_EXECUTION', {
+      taskId,
+      planId,
+    });
+
+    if (result.success) {
+      await updatePlanStatus(planId, 'executing');
+      await updateTaskStatus(taskId, 'executing');
     }
+
+    return result;
   }
 
-  async executeApprovedPlan(planId: string, taskId: string): Promise<void> {
-    await updatePlanStatus(planId, 'executing');
-    await updateTaskStatus(taskId, 'executing');
-  }
+  /**
+   * Record execution result and run quality gates
+   */
+  async recordResult(result: Result): Promise<{ resultId: string; transition: TransitionResult }> {
+    const { getTask } = await import('../db/tasks');
+    const taskRow = await getTask(result.taskId);
+    if (!taskRow) throw new Error('Task not found');
 
-  async recordResult(result: Result): Promise<string> {
+    const currentState = taskStatusToWorkflowState(taskRow.status);
+
+    // Run quality gates
     const gates = await qualityGateExecutor.executeGates(result);
     const allGatesPassed = gates.every(g => g.passed);
 
@@ -87,30 +182,99 @@ export class WorkflowEngine {
       }
     };
 
+    // Save result to DB
     await createResult(resultWithGates);
 
-    const finalStatus = allGatesPassed && result.status === 'success' ? 'completed' : 'failed';
-    await updateTaskStatus(result.taskId, finalStatus);
+    // Transition to awaiting_verification
+    const transitionResult = await this.executeTransition(currentState, 'EXECUTION_COMPLETE', {
+      taskId: result.taskId,
+      resultId: result.id,
+      metadata: { qualityGates: gates },
+    });
 
-    return result.id;
+    if (transitionResult.success) {
+      await updateTaskStatus(result.taskId, 'awaiting_verification');
+    }
+
+    return { resultId: result.id, transition: transitionResult };
   }
 
+  /**
+   * Verify result and complete or fail the task
+   */
+  async verifyResult(taskId: string, verified: boolean, reason?: string): Promise<TransitionResult> {
+    const { getTask } = await import('../db/tasks');
+    const taskRow = await getTask(taskId);
+    if (!taskRow) throw new Error('Task not found');
+
+    const currentState = taskStatusToWorkflowState(taskRow.status);
+    const action = verified ? 'VERIFY_SUCCESS' : 'VERIFY_FAILURE';
+
+    const result = await this.executeTransition(currentState, action, {
+      taskId,
+      reason,
+    });
+
+    if (result.success) {
+      const newStatus = workflowStateToTaskStatus(result.newState);
+      await updateTaskStatus(taskId, newStatus);
+    }
+
+    return result;
+  }
+
+  /**
+   * Retry a failed or rejected task
+   */
+  async retryTask(taskId: string): Promise<TransitionResult> {
+    const { getTask } = await import('../db/tasks');
+    const taskRow = await getTask(taskId);
+    if (!taskRow) throw new Error('Task not found');
+
+    const currentState = taskStatusToWorkflowState(taskRow.status);
+
+    const result = await this.executeTransition(currentState, 'RETRY', { taskId });
+
+    if (result.success) {
+      await updateTaskStatus(taskId, 'planning');
+    }
+
+    return result;
+  }
+
+  /**
+   * Get current workflow state for a task
+   */
   async getWorkflowState(taskId: string): Promise<WorkflowState> {
     const { getTask } = await import('../db/tasks');
     const task = await getTask(taskId);
+    return taskStatusToWorkflowState(task.status);
+  }
 
-    const statusMap: Record<string, WorkflowState> = {
-      'pending': 'task_created',
-      'planning': 'awaiting_proposals',
-      'awaiting_human_decision': 'awaiting_human_decision',
-      'approved': 'plan_approved',
-      'executing': 'executing',
-      'awaiting_verification': 'awaiting_verification',
-      'completed': 'completed',
-      'failed': 'failed'
-    };
+  /**
+   * Get valid actions for current task state
+   */
+  async getValidActions(taskId: string): Promise<string[]> {
+    const currentState = await this.getWorkflowState(taskId);
+    return stateMachine.getValidActions(currentState);
+  }
 
-    return statusMap[task.status] || 'task_created';
+  /**
+   * Get transition history for a task
+   */
+  getTransitionHistory(taskId: string) {
+    return stateMachine.getHistory(taskId);
+  }
+
+  /**
+   * Execute a state transition with validation
+   */
+  private async executeTransition(
+    currentState: WorkflowState | null,
+    action: 'CREATE' | 'START_PLANNING' | 'PROPOSALS_READY' | 'APPROVE' | 'REJECT' | 'START_EXECUTION' | 'EXECUTION_COMPLETE' | 'VERIFY_SUCCESS' | 'VERIFY_FAILURE' | 'FAIL' | 'RETRY',
+    context: TransitionContext
+  ): Promise<TransitionResult> {
+    return stateMachine.transition(currentState, action, context);
   }
 }
 

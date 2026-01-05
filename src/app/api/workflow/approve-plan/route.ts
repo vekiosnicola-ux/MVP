@@ -17,16 +17,40 @@ export async function POST(request: Request) {
 
     const validatedDecision = validateDecision(decision);
 
-    await workflowEngine.recordDecision(validatedDecision, decidedBy || 'Virgilio');
+    // Record the decision (approve or reject)
+    const decisionResult = await workflowEngine.recordDecision(validatedDecision, decidedBy || 'Virgilio');
 
-    if (validatedDecision.planId) {
-      await workflowEngine.executeApprovedPlan(validatedDecision.planId, validatedDecision.taskId);
+    if (!decisionResult.success) {
+      return NextResponse.json(
+        { error: decisionResult.error || 'Decision recording failed' },
+        { status: 400 }
+      );
     }
 
+    // If approved, start execution
+    if (decisionResult.newState === 'plan_approved' && validatedDecision.planId) {
+      const executionResult = await workflowEngine.executeApprovedPlan(
+        validatedDecision.planId,
+        validatedDecision.taskId
+      );
+
+      return NextResponse.json({
+        status: executionResult.newState,
+        message: executionResult.success ? 'Plan approved and execution started' : 'Execution failed to start',
+        taskId: validatedDecision.taskId,
+        transition: {
+          decision: decisionResult,
+          execution: executionResult,
+        }
+      });
+    }
+
+    // Rejected case
     return NextResponse.json({
-      status: 'plan_approved',
-      message: 'Plan approved and execution started',
-      taskId: validatedDecision.taskId
+      status: decisionResult.newState,
+      message: decisionResult.newState === 'plan_rejected' ? 'Plan rejected' : 'Decision recorded',
+      taskId: validatedDecision.taskId,
+      transition: decisionResult,
     });
   } catch (error) {
     return NextResponse.json(

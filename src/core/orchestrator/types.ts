@@ -3,6 +3,7 @@ export type WorkflowState =
   | 'awaiting_proposals'
   | 'awaiting_human_decision'
   | 'plan_approved'
+  | 'plan_rejected'
   | 'executing'
   | 'awaiting_verification'
   | 'completed'

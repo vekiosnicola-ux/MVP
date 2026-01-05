@@ -8,17 +8,38 @@ export async function POST(request: Request) {
     const body = await request.json();
     const result = validateResult(body);
 
-    const resultId = await workflowEngine.recordResult(result);
+    // Record result and transition to awaiting_verification
+    const { resultId, transition } = await workflowEngine.recordResult(result);
 
-    const state = await workflowEngine.getWorkflowState(result.taskId);
+    if (!transition.success) {
+      return NextResponse.json(
+        { error: transition.error || 'Result recording failed' },
+        { status: 400 }
+      );
+    }
+
+    // Now verify the result (human would normally do this)
+    // For now, auto-verify based on quality gates
+    const qualityGates = result.qualityGates;
+    const allGatesPassed = qualityGates?.passed ?? true;
+
+    const verificationResult = await workflowEngine.verifyResult(
+      result.taskId,
+      allGatesPassed,
+      allGatesPassed ? 'All quality gates passed' : 'Quality gates failed'
+    );
 
     return NextResponse.json({
       resultId,
-      status: state,
-      message: state === 'completed'
+      status: verificationResult.newState,
+      message: verificationResult.newState === 'completed'
         ? 'Result verified and task completed'
-        : 'Result recorded but quality gates failed',
-      qualityGates: result.qualityGates
+        : 'Result recorded but verification failed',
+      qualityGates,
+      transition: {
+        record: transition,
+        verification: verificationResult,
+      }
     });
   } catch (error) {
     return NextResponse.json(
