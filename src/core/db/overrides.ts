@@ -91,3 +91,48 @@ export async function deleteOverride(id: string): Promise<void> {
 
   if (error) throw new Error(`Failed to delete override: ${error.message}`);
 }
+
+/**
+ * Get overrides relevant to a task for planning context
+ * Matches by category (task type) and optionally project_id (repository)
+ * Returns most recent and most applied overrides first
+ */
+export async function getRelevantOverrides(
+  category: string,
+  projectId?: string,
+  limit = 10
+): Promise<HumanOverride[]> {
+  const supabase = getSupabaseClient();
+
+  // First try to find project-specific overrides
+  if (projectId) {
+    const { data: projectOverrides } = await supabase
+      .from('human_overrides')
+      .select('*')
+      .eq('category', category)
+      .eq('project_id', projectId)
+      .order('applied_count', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (projectOverrides && projectOverrides.length > 0) {
+      return projectOverrides as HumanOverride[];
+    }
+  }
+
+  // Fall back to category-wide overrides (no project_id or any project)
+  const { data, error } = await supabase
+    .from('human_overrides')
+    .select('*')
+    .eq('category', category)
+    .order('applied_count', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.warn(`[getRelevantOverrides] Error: ${error.message}`);
+    return [];
+  }
+
+  return (data || []) as HumanOverride[];
+}

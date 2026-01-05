@@ -7,6 +7,9 @@
 
 import type { Plan, PlanStep, Risk, AgentType, RiskSeverity } from '@/interfaces/plan';
 import type { Task } from '@/interfaces/task';
+import type { HumanOverride } from '@/interfaces/workflow';
+
+import { getRelevantOverrides } from '../db/overrides';
 
 import { claudeClient } from './claude-client';
 
@@ -57,7 +60,24 @@ You work with a team of specialized agents:
 Create practical, actionable plans that can be executed step-by-step.
 Each step should have clear validation criteria.`;
 
-function createPlanningPrompt(task: Task): string {
+function formatOverridesContext(overrides: HumanOverride[]): string {
+  if (overrides.length === 0) return '';
+
+  const formatted = overrides.map((o) => {
+    return `- When AI suggested "${o.ai_suggestion}", human chose "${o.human_decision}" (reason: ${o.rationale})`;
+  }).join('\n');
+
+  return `
+HUMAN PREFERENCES (from past decisions on similar tasks):
+${formatted}
+
+Consider these preferences when generating proposals. Align with human decisions where applicable.
+`;
+}
+
+function createPlanningPrompt(task: Task, overrides: HumanOverride[] = []): string {
+  const overridesContext = formatOverridesContext(overrides);
+
   return `Generate 2 implementation proposals for this task:
 
 TASK DETAILS:
@@ -73,7 +93,7 @@ CONSTRAINTS:
 - Requires approval: ${task.constraints.requiresApproval}
 - Breaking changes allowed: ${task.constraints.breakingChangesAllowed}
 - Min test coverage: ${task.constraints.testCoverageMin}%
-
+${overridesContext}
 Generate exactly 2 proposals:
 1. A STANDARD approach - thorough, safe, follows best practices
 2. A FAST-TRACK approach - minimal viable implementation, faster delivery
@@ -123,6 +143,18 @@ export class PlanningAgent {
    * Generate implementation plans for a task
    */
   async generatePlans(task: Task): Promise<Plan[]> {
+    // Fetch relevant human overrides for context
+    let overrides: HumanOverride[] = [];
+    try {
+      overrides = await getRelevantOverrides(task.type, task.context.repository);
+      if (overrides.length > 0) {
+        console.log(`[PlanningAgent] Found ${overrides.length} relevant overrides for ${task.type}`);
+      }
+    } catch (error) {
+      console.warn('[PlanningAgent] Could not fetch overrides:', error);
+      // Continue without overrides
+    }
+
     // Check if Claude is configured
     if (!claudeClient.isConfigured()) {
       console.warn('[PlanningAgent] Claude API not configured, using mock plans');
@@ -130,7 +162,7 @@ export class PlanningAgent {
     }
 
     try {
-      const prompt = createPlanningPrompt(task);
+      const prompt = createPlanningPrompt(task, overrides);
 
       const response = await claudeClient.generateJSON<GeneratedProposals>(prompt, {
         system: SYSTEM_PROMPT,
@@ -239,12 +271,12 @@ export class PlanningAgent {
 
   private createMockStandardPlan(task: Task): Plan {
     return {
-      id: `plan-std-${crypto.randomUUID()}`,
+      id: `plan-${crypto.randomUUID()}`,
       taskId: task.id,
       version: '1.0.0',
       steps: [
         {
-          id: 'step-1',
+          id: 'step-001',
           agent: 'architect',
           action: 'Design implementation structure and review impact',
           inputs: [task.id],
@@ -255,7 +287,7 @@ export class PlanningAgent {
           },
         },
         {
-          id: 'step-2',
+          id: 'step-002',
           agent: 'developer',
           action: `Implement: ${task.description}`,
           inputs: ['architecture_spec'],
@@ -264,10 +296,10 @@ export class PlanningAgent {
             command: 'npm run test',
             successCriteria: 'All tests pass',
           },
-          dependencies: ['step-1'],
+          dependencies: ['step-001'],
         },
         {
-          id: 'step-3',
+          id: 'step-003',
           agent: 'reviewer',
           action: 'Code review and security audit',
           inputs: ['code_implementation'],
@@ -276,7 +308,7 @@ export class PlanningAgent {
             command: 'npm run lint',
             successCriteria: 'No linting errors',
           },
-          dependencies: ['step-2'],
+          dependencies: ['step-002'],
         },
       ],
       estimatedDuration: 60,
@@ -295,12 +327,12 @@ export class PlanningAgent {
 
   private createMockFastTrackPlan(task: Task): Plan {
     return {
-      id: `plan-fast-${crypto.randomUUID()}`,
+      id: `plan-${crypto.randomUUID()}`,
       taskId: task.id,
       version: '1.0.0',
       steps: [
         {
-          id: 'step-1',
+          id: 'step-001',
           agent: 'developer',
           action: `Fast-track implementation of ${task.type}`,
           inputs: [task.id],
@@ -311,7 +343,7 @@ export class PlanningAgent {
           },
         },
         {
-          id: 'step-2',
+          id: 'step-002',
           agent: 'tester',
           action: 'Run smoke tests',
           inputs: ['implementation'],
@@ -320,7 +352,7 @@ export class PlanningAgent {
             command: 'npm run test',
             successCriteria: 'Core tests pass',
           },
-          dependencies: ['step-1'],
+          dependencies: ['step-001'],
         },
       ],
       estimatedDuration: 30,

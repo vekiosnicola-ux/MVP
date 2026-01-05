@@ -7,6 +7,7 @@ import { Plan } from '../validators/plan';
 import { Result } from '../validators/result';
 import { Task } from '../validators/task';
 
+import { validatePlan, formatValidationResult } from './pre-validation';
 import { qualityGateExecutor } from './quality-gates';
 import {
   stateMachine,
@@ -166,11 +167,16 @@ export class WorkflowEngine {
    */
   async runExecution(planId: string, taskId: string): Promise<{ resultId: string; transition: TransitionResult }> {
     const { getPlan } = await import('../db/plans');
+    const { getTask } = await import('../db/tasks');
     const { executionAgent } = await import('../agents/execution-agent');
 
     // Get the plan
     const planRow = await getPlan(planId);
     if (!planRow) throw new Error('Plan not found');
+
+    // Get the task for validation
+    const taskRow = await getTask(taskId);
+    if (!taskRow) throw new Error('Task not found');
 
     // Convert PlanRow to Plan interface
     const plan: Plan = {
@@ -184,6 +190,31 @@ export class WorkflowEngine {
         createdAt: planRow.created_at,
       },
     };
+
+    // Convert TaskRow to Task interface for validation
+    const task: Task = {
+      id: taskRow.task_id,
+      version: taskRow.version,
+      type: taskRow.type,
+      description: taskRow.description,
+      context: taskRow.context,
+      constraints: taskRow.constraints,
+      metadata: taskRow.metadata || undefined
+    };
+
+    // Pre-execution validation
+    const validation = validatePlan(plan, task);
+    if (!validation.valid) {
+      console.error('[WorkflowEngine] Plan validation failed:');
+      console.error(formatValidationResult(validation));
+      throw new Error(`Plan validation failed: ${validation.errors.map(e => e.message).join(', ')}`);
+    }
+
+    // Log warnings if any
+    if (validation.warnings.length > 0) {
+      console.warn('[WorkflowEngine] Plan validation warnings:');
+      console.warn(formatValidationResult(validation));
+    }
 
     // Execute the plan
     const executionResult = await executionAgent.execute(plan, taskId);

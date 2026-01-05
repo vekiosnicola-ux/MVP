@@ -58,6 +58,10 @@ export interface Result {
     environment?: 'local' | 'ci' | 'production';
     commitHash?: string;
     logs?: string;
+    /** Circuit breaker was triggered */
+    circuitBroken?: boolean;
+    /** Number of steps skipped due to circuit breaker */
+    skippedSteps?: number;
   };
 }
 

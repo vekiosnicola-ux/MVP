@@ -12,6 +12,15 @@ import type { Result, StepResult, Artifacts, QualityGates } from '@/interfaces/r
 // Types
 // ============================================================================
 
+export interface CircuitBreakerConfig {
+  /** Stop execution after N consecutive failures */
+  maxConsecutiveFailures: number;
+  /** Timeout per step in milliseconds */
+  stepTimeout: number;
+  /** Max retries per step before marking as failed */
+  maxRetries: number;
+}
+
 export interface ExecutionOptions {
   /** Simulate delay per step (ms) */
   stepDelay?: number;
@@ -19,6 +28,8 @@ export interface ExecutionOptions {
   failureRate?: number;
   /** Force specific step to fail */
   forceFailStep?: string;
+  /** Circuit breaker configuration */
+  circuitBreaker?: Partial<CircuitBreakerConfig>;
 }
 
 export interface ExecutionProgress {
@@ -34,8 +45,15 @@ type ProgressCallback = (progress: ExecutionProgress) => void;
 // Execution Agent
 // ============================================================================
 
+const DEFAULT_CIRCUIT_BREAKER: CircuitBreakerConfig = {
+  maxConsecutiveFailures: 3,
+  stepTimeout: 30000, // 30 seconds
+  maxRetries: 2,
+};
+
 export class ExecutionAgent {
   private options: ExecutionOptions;
+  private circuitBreaker: CircuitBreakerConfig;
   private progressCallbacks: ProgressCallback[] = [];
 
   constructor(options: ExecutionOptions = {}) {
@@ -44,19 +62,36 @@ export class ExecutionAgent {
       failureRate: options.failureRate ?? 0,
       forceFailStep: options.forceFailStep,
     };
+    this.circuitBreaker = {
+      ...DEFAULT_CIRCUIT_BREAKER,
+      ...options.circuitBreaker,
+    };
   }
 
   /**
    * Execute a plan and return results
+   * Includes circuit breaker: stops after maxConsecutiveFailures
    */
   async execute(plan: Plan, taskId: string): Promise<Result> {
     const startTime = Date.now();
     const stepResults: StepResult[] = [];
     let overallStatus: Result['status'] = 'success';
+    let consecutiveFailures = 0;
+    let circuitBroken = false;
 
     for (let i = 0; i < plan.steps.length; i++) {
       const step = plan.steps[i];
       if (!step) continue;
+
+      // Circuit breaker check
+      if (consecutiveFailures >= this.circuitBreaker.maxConsecutiveFailures) {
+        console.error(
+          `[ExecutionAgent] Circuit breaker triggered after ${consecutiveFailures} consecutive failures. ` +
+          `Skipping remaining ${plan.steps.length - i} steps.`
+        );
+        circuitBroken = true;
+        break;
+      }
 
       // Notify progress
       this.notifyProgress({
@@ -69,9 +104,17 @@ export class ExecutionAgent {
       // Simulate execution delay
       await this.delay(this.options.stepDelay || 500);
 
-      // Execute step
-      const stepResult = await this.executeStep(step);
+      // Execute step with retry logic
+      const stepResult = await this.executeStepWithRetry(step);
       stepResults.push(stepResult);
+
+      // Track consecutive failures for circuit breaker
+      if (stepResult.status === 'failure') {
+        consecutiveFailures++;
+        overallStatus = 'partial_success';
+      } else {
+        consecutiveFailures = 0; // Reset on success
+      }
 
       // Notify completion
       this.notifyProgress({
@@ -80,17 +123,11 @@ export class ExecutionAgent {
         stepId: step.id,
         status: stepResult.status === 'success' ? 'completed' : 'failed',
       });
-
-      // Handle failure
-      if (stepResult.status === 'failure') {
-        overallStatus = 'partial_success';
-        // Continue execution but mark overall as partial
-      }
     }
 
     // Calculate final status
     const failedSteps = stepResults.filter((s) => s.status === 'failure').length;
-    if (failedSteps === stepResults.length) {
+    if (failedSteps === stepResults.length || circuitBroken) {
       overallStatus = 'failure';
     } else if (failedSteps > 0) {
       overallStatus = 'partial_success';
@@ -99,7 +136,96 @@ export class ExecutionAgent {
     const endTime = Date.now();
     const duration = Math.round((endTime - startTime) / 1000);
 
-    return this.buildResult(plan, taskId, stepResults, overallStatus, duration);
+    const result = this.buildResult(plan, taskId, stepResults, overallStatus, duration);
+
+    // Add circuit breaker metadata if triggered
+    if (circuitBroken) {
+      result.metadata = {
+        ...result.metadata,
+        circuitBroken: true,
+        skippedSteps: plan.steps.length - stepResults.length,
+      };
+    }
+
+    return result;
+  }
+
+  /**
+   * Execute a step with retry logic and timeout
+   */
+  private async executeStepWithRetry(step: PlanStep): Promise<StepResult> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= this.circuitBreaker.maxRetries; attempt++) {
+      try {
+        // Execute with timeout
+        const result = await this.executeWithTimeout(
+          () => this.executeStep(step),
+          this.circuitBreaker.stepTimeout
+        );
+
+        if (result.status === 'success') {
+          return result;
+        }
+
+        // Step failed but didn't throw - check if we should retry
+        if (attempt < this.circuitBreaker.maxRetries) {
+          console.log(`[ExecutionAgent] Step ${step.id} failed, retrying (${attempt + 1}/${this.circuitBreaker.maxRetries})`);
+          await this.delay(1000); // Wait 1s before retry
+          continue;
+        }
+
+        return result;
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        console.error(`[ExecutionAgent] Step ${step.id} threw error:`, lastError.message);
+
+        if (attempt < this.circuitBreaker.maxRetries) {
+          console.log(`[ExecutionAgent] Retrying step ${step.id} (${attempt + 1}/${this.circuitBreaker.maxRetries})`);
+          await this.delay(1000);
+          continue;
+        }
+      }
+    }
+
+    // All retries exhausted
+    return this.createTimeoutStepResult(step, lastError?.message || 'Max retries exceeded');
+  }
+
+  /**
+   * Execute a function with timeout
+   */
+  private async executeWithTimeout<T>(
+    fn: () => Promise<T>,
+    timeout: number
+  ): Promise<T> {
+    return Promise.race([
+      fn(),
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error(`Step timed out after ${timeout}ms`)), timeout)
+      ),
+    ]);
+  }
+
+  /**
+   * Create a timeout/error step result
+   */
+  private createTimeoutStepResult(step: PlanStep, errorMessage: string): StepResult {
+    return {
+      id: step.id,
+      status: 'failure',
+      duration: Math.round(this.circuitBreaker.stepTimeout / 1000),
+      validation: {
+        passed: false,
+        command: step.validation.command,
+        output: `✗ ${errorMessage}`,
+        exitCode: 124, // Standard timeout exit code
+      },
+      error: {
+        message: errorMessage,
+        recoverable: false,
+      },
+    };
   }
 
   /**
