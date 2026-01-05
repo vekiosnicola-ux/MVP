@@ -251,12 +251,26 @@ export const workflowApi = {
   },
 
   /**
-   * Verify a result and complete the task
+   * Verify a result and complete the task (automated)
    */
   verifyResult: async (result: unknown): Promise<{ resultId: string; status: string; message: string; qualityGates?: unknown }> => {
     return fetchApi('/workflow/verify-result', {
       method: 'POST',
       body: JSON.stringify(result),
+    });
+  },
+
+  /**
+   * Human verification of task results
+   */
+  verifyTask: async (
+    taskId: string,
+    verified: boolean,
+    feedback?: string
+  ): Promise<{ status: string; message: string; taskId: string }> => {
+    return fetchApi('/workflow/verify-task', {
+      method: 'POST',
+      body: JSON.stringify({ taskId, verified, feedback }),
     });
   },
 };

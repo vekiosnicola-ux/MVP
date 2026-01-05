@@ -1,6 +1,6 @@
 'use client';
 
-import { LayoutDashboard, CheckCircle, Clock, Plus } from 'lucide-react';
+import { LayoutDashboard, CheckCircle, ClipboardCheck, Clock, Plus } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import * as React from 'react';
@@ -30,6 +30,12 @@ const navItems: NavItem[] = [
     badge: 1,
   },
   {
+    title: 'Verification',
+    href: '/verification',
+    icon: ClipboardCheck,
+    badge: 0,
+  },
+  {
     title: 'Create Task',
     href: '/tasks/new',
     icon: Plus,
@@ -44,8 +50,9 @@ const navItems: NavItem[] = [
 export function Sidebar(): React.ReactElement {
   const pathname = usePathname();
   const [approvalCount, setApprovalCount] = React.useState(0);
+  const [verificationCount, setVerificationCount] = React.useState(0);
 
-  // Fetch approval count
+  // Fetch counts for approval and verification queues
   React.useEffect(() => {
     async function fetchCounts() {
       try {
@@ -53,9 +60,13 @@ export function Sidebar(): React.ReactElement {
         const awaiting = allTasks.filter(
           (task: TaskRow) => task.status === 'planning' || task.status === 'awaiting_human_decision'
         );
+        const verification = allTasks.filter(
+          (task: TaskRow) => task.status === 'awaiting_verification'
+        );
         setApprovalCount(awaiting.length);
+        setVerificationCount(verification.length);
       } catch (err) {
-        console.error('Error fetching approval counts:', err);
+        console.error('Error fetching queue counts:', err);
       }
     }
 
@@ -72,7 +83,12 @@ export function Sidebar(): React.ReactElement {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
-            const badgeValue = item.title === 'Approval Queue' ? approvalCount : item.badge;
+            const badgeValue =
+              item.title === 'Approval Queue'
+                ? approvalCount
+                : item.title === 'Verification'
+                  ? verificationCount
+                  : item.badge;
 
             return (
               <Link

@@ -221,13 +221,25 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps): React.R
 
       {/* Actions */}
       <div className="flex gap-3">
-        {task.status === 'planning' && (
-          <Link href="/approval">
-            <Button>View Proposals</Button>
+        {task.status === 'awaiting_human_decision' && (
+          <Link href={`/approval?taskId=${task.task_id}`}>
+            <Button>Review Proposals</Button>
+          </Link>
+        )}
+        {task.status === 'awaiting_verification' && (
+          <Link href={`/verification?taskId=${task.task_id}`}>
+            <Button>Review & Verify</Button>
           </Link>
         )}
         {task.status === 'completed' && (
-          <Button variant="secondary">View Results</Button>
+          <Link href={`/verification?taskId=${task.task_id}`}>
+            <Button variant="secondary">View Results</Button>
+          </Link>
+        )}
+        {task.status === 'failed' && (
+          <Link href={`/verification?taskId=${task.task_id}`}>
+            <Button variant="danger">View Failure Details</Button>
+          </Link>
         )}
       </div>
     </div>
