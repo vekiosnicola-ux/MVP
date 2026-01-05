@@ -1,26 +1,76 @@
 'use client';
 
-import { ArrowLeft, Filter } from 'lucide-react';
+import { ArrowLeft, Filter, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 
 import { HistoryTimeline } from '@/components/history/history-timeline';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { mockHistory } from '@/lib/mock-data';
+import { Card, CardContent } from '@/components/ui/card';
+import type { HistoryEvent } from '@/interfaces/history';
 
 export default function HistoryPage(): React.ReactElement {
+  const [events, setEvents] = React.useState<HistoryEvent[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
   const [timeFilter, setTimeFilter] = React.useState<string>('all');
   const [typeFilter, setTypeFilter] = React.useState<string>('all');
 
+  React.useEffect(() => {
+    async function fetchHistory() {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch('/api/history');
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch history');
+        }
+
+        const data = await response.json();
+        setEvents(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error occurred');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchHistory();
+  }, []);
+
   const filteredEvents = React.useMemo(() => {
-    let filtered = mockHistory;
+    let filtered = events;
 
     if (typeFilter !== 'all') {
       filtered = filtered.filter((event) => event.type === typeFilter);
     }
 
     return filtered;
-  }, [typeFilter]);
+  }, [events, typeFilter]);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6 flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-accent-primary" />
+          <p className="text-text-secondary">Loading history...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card className="border-accent-danger">
+          <CardContent className="pt-6">
+            <p className="text-accent-danger">Error loading history: {error}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -88,7 +138,13 @@ export default function HistoryPage(): React.ReactElement {
       </div>
 
       {/* Timeline */}
-      <HistoryTimeline events={filteredEvents} />
+      {filteredEvents.length === 0 && events.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-text-secondary">No history events yet. Start creating tasks to see activity here.</p>
+        </div>
+      ) : (
+        <HistoryTimeline events={filteredEvents} />
+      )}
     </div>
   );
 }

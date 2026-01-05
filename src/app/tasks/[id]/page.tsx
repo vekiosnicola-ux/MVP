@@ -1,7 +1,7 @@
 'use client';
 
 import { formatDistanceToNow } from 'date-fns';
-import { ArrowLeft, Calendar, GitBranch } from 'lucide-react';
+import { ArrowLeft, Calendar, GitBranch, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import * as React from 'react';
@@ -12,7 +12,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { QualityGates } from '@/components/workflow/quality-gates';
 import { StatusBadge } from '@/components/workflow/status-badge';
 import { WorkflowTimeline } from '@/components/workflow/timeline';
-import { getTaskById } from '@/lib/mock-data';
+import type { TaskRow } from '@/interfaces/task';
 
 
 interface TaskDetailPageProps {
@@ -22,12 +22,64 @@ interface TaskDetailPageProps {
 }
 
 export default function TaskDetailPage({ params }: TaskDetailPageProps): React.ReactElement {
-  const task = getTaskById(params.id);
+  const [task, setTask] = React.useState<TaskRow | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
     setMounted(true);
   }, []);
+
+  React.useEffect(() => {
+    async function fetchTask() {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch(`/api/tasks/${params.id}`);
+
+        if (response.status === 404) {
+          notFound();
+        }
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch task');
+        }
+
+        const data = await response.json();
+        setTask(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error occurred');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchTask();
+  }, [params.id]);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6 flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-accent-primary" />
+          <p className="text-text-secondary">Loading task details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card className="border-accent-danger">
+          <CardContent className="pt-6">
+            <p className="text-accent-danger">Error loading task: {error}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!task) {
     notFound();
@@ -66,12 +118,12 @@ export default function TaskDetailPage({ params }: TaskDetailPageProps): React.R
         {/* Badges */}
         <div className="flex flex-wrap items-center gap-2">
           <Badge>{task.type}</Badge>
-          {task.metadata.priority && (
+          {task.metadata?.priority && (
             <Badge variant={task.metadata.priority === 'high' || task.metadata.priority === 'critical' ? 'danger' : 'default'}>
               {task.metadata.priority} priority
             </Badge>
           )}
-          {task.metadata.labels?.map((label) => (
+          {task.metadata?.labels?.map((label) => (
             <Badge key={label} variant="default">
               {label}
             </Badge>

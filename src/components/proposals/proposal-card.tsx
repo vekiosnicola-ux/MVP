@@ -1,15 +1,15 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import * as React from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import type { MockPlan } from '@/lib/mock-data';
+import type { PlanRow } from '@/interfaces/plan';
 
 interface ProposalCardProps {
-  plan: MockPlan;
+  plan: PlanRow;
   isSelected?: boolean;
   onSelect?: () => void;
 }
@@ -53,39 +53,22 @@ export function ProposalCard({ plan, isSelected = false, onSelect }: ProposalCar
             <span className="font-medium text-text-primary">{plan.estimated_duration} min</span>
           </div>
 
-          {/* Pros */}
-          {plan.pros && plan.pros.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="h-4 w-4 text-accent-success" />
-                <span className="text-sm font-medium text-text-primary">Pros</span>
-              </div>
-              <ul className="space-y-1 ml-6">
-                {plan.pros.map((pro, index) => (
-                  <li key={index} className="text-sm text-text-secondary">
-                    {pro}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* Cons */}
-          {plan.cons && plan.cons.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <XCircle className="h-4 w-4 text-accent-danger" />
-                <span className="text-sm font-medium text-text-primary">Cons</span>
-              </div>
-              <ul className="space-y-1 ml-6">
-                {plan.cons.map((con, index) => (
-                  <li key={index} className="text-sm text-text-secondary">
-                    {con}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {/* Steps */}
+          <div>
+            <div className="text-sm font-medium text-text-primary mb-2">Implementation Steps</div>
+            <ul className="space-y-1.5 ml-4">
+              {plan.steps.slice(0, 3).map((step, index) => (
+                <li key={step.id} className="text-sm text-text-secondary">
+                  {index + 1}. {step.action}
+                </li>
+              ))}
+              {plan.steps.length > 3 && (
+                <li className="text-xs text-text-tertiary italic">
+                  + {plan.steps.length - 3} more steps
+                </li>
+              )}
+            </ul>
+          </div>
 
           {/* Risks */}
           {plan.risks && plan.risks.length > 0 && (
@@ -114,7 +97,7 @@ export function ProposalCard({ plan, isSelected = false, onSelect }: ProposalCar
             </div>
           )}
 
-          {/* Steps count */}
+          {/* Steps count and agent */}
           <div className="pt-2 border-t border-border-primary">
             <span className="text-xs text-text-tertiary">
               {plan.steps.length} steps • Agent: {plan.agent}

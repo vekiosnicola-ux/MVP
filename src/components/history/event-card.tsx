@@ -6,7 +6,7 @@ import { CheckCircle, XCircle, FileText, Plus } from 'lucide-react';
 import * as React from 'react';
 
 import { Card } from '@/components/ui/card';
-import type { HistoryEvent } from '@/lib/mock-data';
+import type { HistoryEvent } from '@/interfaces/history';
 
 
 interface EventCardProps {

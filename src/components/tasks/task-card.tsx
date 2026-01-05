@@ -7,12 +7,12 @@ import * as React from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import type { MockTask } from '@/lib/mock-data';
+import type { TaskRow } from '@/interfaces/task';
 import { cn } from '@/lib/utils';
 
 
 interface TaskCardProps {
-  task: MockTask;
+  task: TaskRow;
 }
 
 const cardVariants = {
@@ -87,7 +87,7 @@ export function TaskCard({ task }: TaskCardProps): React.ReactElement {
 
   return (
     <motion.div variants={cardVariants} initial="rest" whileHover="hover">
-      <Link href={`/tasks/${task.id}`}>
+      <Link href={`/tasks/${task.task_id}`}>
         <Card className="p-4 hover:border-border-focus transition-all cursor-pointer">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
@@ -95,7 +95,7 @@ export function TaskCard({ task }: TaskCardProps): React.ReactElement {
                 <Badge variant="default" className="text-xs">
                   {task.type}
                 </Badge>
-                {task.metadata.priority && (
+                {task.metadata?.priority && (
                   <span className={cn('text-xs font-medium uppercase', getPriorityColor(task.metadata.priority))}>
                     {task.metadata.priority}
                   </span>
@@ -112,7 +112,7 @@ export function TaskCard({ task }: TaskCardProps): React.ReactElement {
               {getStatusLabel(task.status)}
             </Badge>
           </div>
-          {task.metadata.labels && task.metadata.labels.length > 0 && (
+          {task.metadata?.labels && task.metadata.labels.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-3">
               {task.metadata.labels.slice(0, 3).map((label) => (
                 <span

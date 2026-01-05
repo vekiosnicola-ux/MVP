@@ -4,7 +4,7 @@ import { format, isSameDay } from 'date-fns';
 import { motion } from 'framer-motion';
 import * as React from 'react';
 
-import type { HistoryEvent } from '@/lib/mock-data';
+import type { HistoryEvent } from '@/interfaces/history';
 
 import { EventCard } from './event-card';
 

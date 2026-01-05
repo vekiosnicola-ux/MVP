@@ -1,6 +1,6 @@
 'use client';
 
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import * as React from 'react';
 
@@ -8,17 +8,71 @@ import { DecisionPanel } from '@/components/proposals/decision-panel';
 import { ProposalCard } from '@/components/proposals/proposal-card';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { getTasksAwaitingApproval, getPlansByTaskId } from '@/lib/mock-data';
+import type { TaskRow } from '@/interfaces/task';
+import type { PlanRow } from '@/interfaces/plan';
 
 export default function ApprovalQueuePage(): React.ReactElement {
-  const awaitingTasks = getTasksAwaitingApproval();
-  const [selectedTaskId, setSelectedTaskId] = React.useState<string | null>(
-    awaitingTasks.length > 0 ? awaitingTasks[0]?.task_id ?? null : null
-  );
+  const [awaitingTasks, setAwaitingTasks] = React.useState<TaskRow[]>([]);
+  const [plans, setPlans] = React.useState<PlanRow[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = React.useState<string | null>(null);
   const [selectedPlanIndex, setSelectedPlanIndex] = React.useState<number>(0);
 
+  React.useEffect(() => {
+    async function fetchAwaitingTasks() {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await fetch('/api/tasks?status=planning');
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch tasks');
+        }
+
+        const data = await response.json();
+        setAwaitingTasks(data);
+
+        if (data.length > 0) {
+          setSelectedTaskId(data[0].task_id);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Unknown error occurred');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchAwaitingTasks();
+  }, []);
+
+  React.useEffect(() => {
+    async function fetchPlans() {
+      if (!selectedTaskId) {
+        setPlans([]);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/plans?taskId=${selectedTaskId}`);
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch plans');
+        }
+
+        const data = await response.json();
+        setPlans(data);
+        setSelectedPlanIndex(0);
+      } catch (err) {
+        console.error('Error fetching plans:', err);
+        setPlans([]);
+      }
+    }
+
+    fetchPlans();
+  }, [selectedTaskId]);
+
   const selectedTask = awaitingTasks.find((task) => task.task_id === selectedTaskId);
-  const plans = selectedTaskId ? getPlansByTaskId(selectedTaskId) : [];
 
   const handleApprove = async (selectedOption: number, rationale: string): Promise<void> => {
     console.log('Approving decision:', { selectedTaskId, selectedOption, rationale });
@@ -28,6 +82,29 @@ export default function ApprovalQueuePage(): React.ReactElement {
   const handleCancel = (): void => {
     console.log('Decision cancelled');
   };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6 flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-accent-primary" />
+          <p className="text-text-secondary">Loading approval queue...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card className="border-accent-danger">
+          <CardContent className="pt-6">
+            <p className="text-accent-danger">Error loading approval queue: {error}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (awaitingTasks.length === 0) {
     return (
@@ -100,7 +177,7 @@ export default function ApprovalQueuePage(): React.ReactElement {
             <CardTitle>{selectedTask.description}</CardTitle>
             <div className="flex items-center gap-3 mt-2">
               <Badge>{selectedTask.type}</Badge>
-              {selectedTask.metadata.priority && (
+              {selectedTask.metadata?.priority && (
                 <Badge variant={selectedTask.metadata.priority === 'high' ? 'warning' : 'default'}>
                   {selectedTask.metadata.priority} priority
                 </Badge>
