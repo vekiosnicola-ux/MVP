@@ -137,7 +137,6 @@ export async function getPatternStats(
 
   // Calculate aggregate stats
   let totalApproved = 0;
-  let totalRejected = 0;
   let totalTime = 0;
   let totalDecisions = 0;
   const allReasons: string[] = [];
@@ -145,7 +144,6 @@ export async function getPatternStats(
   const approachStats = patterns.map(p => {
     const total = p.approved_count + p.rejected_count;
     totalApproved += p.approved_count;
-    totalRejected += p.rejected_count;
     totalTime += p.avg_time_to_decision * total;
     totalDecisions += total;
     allReasons.push(...(p.common_rejection_reasons || []));

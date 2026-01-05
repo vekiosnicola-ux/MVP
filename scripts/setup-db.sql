@@ -107,6 +107,28 @@ CREATE INDEX idx_overrides_category ON human_overrides(category);
 CREATE INDEX idx_overrides_project ON human_overrides(project_id);
 
 -- =====================================================
+-- TABLE: approval_patterns (Learning Loop)
+-- Tracks which proposal approaches get approved/rejected
+-- =====================================================
+CREATE TABLE approval_patterns (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  category TEXT NOT NULL,           -- Task type (feature, bugfix, refactor, etc.)
+  approach_type TEXT NOT NULL,      -- e.g., "Standard Implementation", "Fast-Track"
+  approved_count INTEGER DEFAULT 0,
+  rejected_count INTEGER DEFAULT 0,
+  avg_time_to_decision INTEGER DEFAULT 0, -- Average minutes from proposal to decision
+  common_rejection_reasons TEXT[] DEFAULT '{}',
+  project_id TEXT,                  -- Optional project-specific pattern
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (category, approach_type, project_id)
+);
+
+CREATE INDEX idx_patterns_category ON approval_patterns(category);
+CREATE INDEX idx_patterns_approach ON approval_patterns(approach_type);
+CREATE INDEX idx_patterns_project ON approval_patterns(project_id);
+
+-- =====================================================
 -- ROW LEVEL SECURITY (RLS)
 -- =====================================================
 
@@ -116,6 +138,7 @@ ALTER TABLE plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE decisions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE results ENABLE ROW LEVEL SECURITY;
 ALTER TABLE human_overrides ENABLE ROW LEVEL SECURITY;
+ALTER TABLE approval_patterns ENABLE ROW LEVEL SECURITY;
 
 -- Permissive policies for MVP (single user)
 -- Tighten these later for multi-user support
@@ -125,6 +148,7 @@ CREATE POLICY "Allow all operations" ON plans FOR ALL USING (true);
 CREATE POLICY "Allow all operations" ON decisions FOR ALL USING (true);
 CREATE POLICY "Allow all operations" ON results FOR ALL USING (true);
 CREATE POLICY "Allow all operations" ON human_overrides FOR ALL USING (true);
+CREATE POLICY "Allow all operations" ON approval_patterns FOR ALL USING (true);
 
 -- =====================================================
 -- VERIFICATION QUERIES
@@ -134,24 +158,24 @@ CREATE POLICY "Allow all operations" ON human_overrides FOR ALL USING (true);
 SELECT table_name
 FROM information_schema.tables
 WHERE table_schema = 'public'
-  AND table_name IN ('tasks', 'plans', 'decisions', 'results', 'human_overrides')
+  AND table_name IN ('tasks', 'plans', 'decisions', 'results', 'human_overrides', 'approval_patterns')
 ORDER BY table_name;
 
 -- Verify all indexes were created
 SELECT indexname, tablename
 FROM pg_indexes
 WHERE schemaname = 'public'
-  AND tablename IN ('tasks', 'plans', 'decisions', 'results', 'human_overrides')
+  AND tablename IN ('tasks', 'plans', 'decisions', 'results', 'human_overrides', 'approval_patterns')
 ORDER BY tablename, indexname;
 
 -- Verify RLS is enabled
 SELECT tablename, rowsecurity
 FROM pg_tables
 WHERE schemaname = 'public'
-  AND tablename IN ('tasks', 'plans', 'decisions', 'results', 'human_overrides');
+  AND tablename IN ('tasks', 'plans', 'decisions', 'results', 'human_overrides', 'approval_patterns');
 
 -- =====================================================
 -- SETUP COMPLETE
 -- =====================================================
 -- You can now use the Aura MVP Orchestration Engine!
--- All 5 tables created with indexes and RLS policies.
+-- All 6 tables created with indexes and RLS policies.

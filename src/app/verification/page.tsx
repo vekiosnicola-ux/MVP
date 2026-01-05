@@ -4,6 +4,7 @@ import { ArrowLeft, AlertCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import * as React from 'react';
+import { Suspense } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -22,6 +23,24 @@ import { resultsApi, tasksApi, workflowApi } from '@/lib/api';
  * Verification page - review execution results and approve/reject
  */
 export default function VerificationPage(): React.ReactElement {
+  return (
+    <Suspense fallback={<VerificationLoading />}>
+      <VerificationContent />
+    </Suspense>
+  );
+}
+
+function VerificationLoading(): React.ReactElement {
+  return (
+    <div className="container mx-auto p-6">
+      <div className="text-center py-12">
+        <p className="text-text-secondary">Loading verification queue...</p>
+      </div>
+    </div>
+  );
+}
+
+function VerificationContent(): React.ReactElement {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedTaskId = searchParams.get('taskId');
