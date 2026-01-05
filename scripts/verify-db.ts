@@ -15,7 +15,7 @@ function loadEnv() {
 
   envContent.split('\n').forEach(line => {
     const match = line.match(/^([^#=]+)=(.*)$/);
-    if (match) {
+    if (match && match[1] && match[2]) {
       env[match[1].trim()] = match[2].trim();
     }
   });
@@ -24,8 +24,8 @@ function loadEnv() {
 }
 
 const env = loadEnv();
-const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -40,7 +40,7 @@ async function verifyDatabase() {
 
   try {
     // Test connection with a simple query
-    const { data, error } = await supabase.from('tasks').select('count', { count: 'exact', head: true });
+    const { error } = await supabase.from('tasks').select('count', { count: 'exact', head: true });
 
     if (error) {
       if (error.message.includes('relation') && error.message.includes('does not exist')) {
