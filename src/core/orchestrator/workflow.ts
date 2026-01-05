@@ -19,6 +19,39 @@ export class WorkflowEngine {
     return task.id;
   }
 
+  async processTask(taskId: string): Promise<void> {
+    const { getTask } = await import('../db/tasks');
+    const { proposalGenerator } = await import('../agents/proposal-generator');
+
+    const taskRow = await getTask(taskId);
+    if (!taskRow) throw new Error('Task not found');
+
+    // Transform TaskRow to Task interface
+    const task: Task = {
+      id: taskRow.task_id,
+      version: taskRow.version,
+      type: taskRow.type,
+      description: taskRow.description,
+      context: taskRow.context,
+      constraints: taskRow.constraints,
+      metadata: taskRow.metadata || undefined
+    };
+
+    // Simulate AI thinking delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    // Generate proposals
+    const plans = await proposalGenerator.generateProposals(task);
+
+    // Save plans to DB
+    for (const plan of plans) {
+      await createPlan(plan);
+    }
+
+    // Transition task to awaiting approval
+    await updateTaskStatus(taskId, 'awaiting_human_decision');
+  }
+
   async submitProposal(taskId: string, plan: Plan): Promise<string> {
     await createPlan(plan);
 

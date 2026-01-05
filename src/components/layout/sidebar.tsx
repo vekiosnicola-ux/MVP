@@ -6,6 +6,8 @@ import { usePathname } from 'next/navigation';
 import * as React from 'react';
 
 import { Badge } from '@/components/ui/badge';
+import type { TaskRow } from '@/interfaces/task';
+import { tasksApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -41,6 +43,27 @@ const navItems: NavItem[] = [
 
 export function Sidebar(): React.ReactElement {
   const pathname = usePathname();
+  const [approvalCount, setApprovalCount] = React.useState(0);
+
+  // Fetch approval count
+  React.useEffect(() => {
+    async function fetchCounts() {
+      try {
+        const allTasks = await tasksApi.list();
+        const awaiting = allTasks.filter(
+          (task: TaskRow) => task.status === 'planning' || task.status === 'awaiting_human_decision'
+        );
+        setApprovalCount(awaiting.length);
+      } catch (err) {
+        console.error('Error fetching approval counts:', err);
+      }
+    }
+
+    fetchCounts();
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchCounts, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:border-r lg:border-border-primary lg:bg-bg-secondary">
@@ -49,6 +72,7 @@ export function Sidebar(): React.ReactElement {
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
+            const badgeValue = item.title === 'Approval Queue' ? approvalCount : item.badge;
 
             return (
               <Link
@@ -65,9 +89,9 @@ export function Sidebar(): React.ReactElement {
                   <Icon className="h-5 w-5" />
                   <span>{item.title}</span>
                 </div>
-                {item.badge !== undefined && item.badge > 0 && (
+                {badgeValue !== undefined && badgeValue > 0 && (
                   <Badge variant={isActive ? 'default' : 'warning'} className="ml-auto">
-                    {item.badge}
+                    {badgeValue}
                   </Badge>
                 )}
               </Link>

@@ -3,6 +3,7 @@
 import { formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import * as React from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -88,14 +89,46 @@ function getPriorityColor(priority?: string): string {
 
 export function TaskCard({ task }: TaskCardProps): React.ReactElement {
   const [mounted, setMounted] = React.useState(false);
+  const [isProcessing, setIsProcessing] = React.useState(false);
+  const router = useRouter();
 
   React.useEffect(() => {
     setMounted(true);
   }, []);
 
+  const handleProcess = async (e: React.MouseEvent): Promise<void> => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (isProcessing) return;
+
+    try {
+      setIsProcessing(true);
+      const response = await fetch('/api/workflow/generate-proposals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId: task.task_id }),
+      });
+
+      if (!response.ok) throw new Error('Failed to generate proposals');
+
+      // Refresh the page or update state to reflect the new status
+      router.refresh();
+      // Alternatively, windows.location.reload() for a hard refresh if router.refresh() isn't enough for the cached list
+      window.location.reload();
+    } catch (err) {
+      console.error('Error processing task:', err);
+      alert(`Failed to generate proposals: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const showProcessButton = task.status === 'planning';
+
   return (
     <motion.div variants={cardVariants} initial="rest" whileHover="hover">
-      <Link href={`/tasks/${task.id}`}>
+      <Link href={`/tasks/${task.task_id}`}>
         <Card className="p-4 hover:border-border-focus transition-all cursor-pointer">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
@@ -116,9 +149,23 @@ export function TaskCard({ task }: TaskCardProps): React.ReactElement {
                 {mounted ? formatDistanceToNow(new Date(task.created_at), { addSuffix: true }) : 'Loading...'}
               </p>
             </div>
-            <Badge variant={getStatusVariant(task.status)}>
-              {getStatusLabel(task.status)}
-            </Badge>
+            <div className="flex flex-col items-end gap-2">
+              <Badge variant={getStatusVariant(task.status)}>
+                {getStatusLabel(task.status)}
+              </Badge>
+              {showProcessButton && (
+                <button
+                  onClick={handleProcess}
+                  disabled={isProcessing}
+                  className={cn(
+                    "text-[10px] px-2 py-0.5 rounded border border-accent-primary text-accent-primary hover:bg-accent-primary hover:text-white transition-all font-semibold",
+                    isProcessing && "opacity-50 cursor-not-allowed animate-pulse"
+                  )}
+                >
+                  {isProcessing ? 'Processing...' : 'Process'}
+                </button>
+              )}
+            </div>
           </div>
           {task.metadata?.labels && task.metadata.labels.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-3">

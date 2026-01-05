@@ -12,6 +12,8 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import type { Task, TaskType, Priority } from '@/interfaces/task';
+import { workflowApi } from '@/lib/api';
 
 export default function CreateTaskPage(): React.ReactElement {
   const router = useRouter();
@@ -21,14 +23,45 @@ export default function CreateTaskPage(): React.ReactElement {
     e.preventDefault();
     setIsSubmitting(true);
 
+    try {
+      const formData = new FormData(e.currentTarget);
 
+      // Generate task ID
+      const taskId = `task-${crypto.randomUUID()}`;
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
+      const task: Task = {
+        id: taskId,
+        version: '1.0.0',
+        type: formData.get('type') as TaskType,
+        description: formData.get('description') as string,
+        context: {
+          repository: formData.get('repository') as string,
+          branch: formData.get('branch') as string,
+          files: [], // Initially empty, would be populated by context analysis
+        },
+        constraints: {
+          maxDuration: parseInt(formData.get('maxDuration') as string, 10),
+          requiresApproval: true,
+          breakingChangesAllowed: false,
+          testCoverageMin: 80,
+        },
+        metadata: {
+          createdAt: new Date().toISOString(),
+          createdBy: 'Virgilio',
+          priority: formData.get('priority') as Priority,
+        }
+      };
 
-    alert('Task created successfully! (Mock implementation)');
-    router.push('/');
+      await workflowApi.createTask(task);
 
-    setIsSubmitting(false);
+      router.push('/');
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create task';
+      alert(`Error: ${errorMessage}`);
+      console.error('Error creating task:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
