@@ -8,10 +8,10 @@ export async function GET(
 ) {
   try {
     const result = await getResult(params.id);
-    return NextResponse.json(result);
+    return NextResponse.json({ success: true, data: result });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Not found' },
+      { success: false, error: error instanceof Error ? error.message : 'Not found' },
       { status: 404 }
     );
   }

@@ -47,34 +47,38 @@ export const tasksApi = {
     if (filters?.type) params.append('type', filters.type);
 
     const query = params.toString();
-    return fetchApi<TaskRow[]>(`/tasks${query ? `?${query}` : ''}`);
+    const response = await fetchApi<{ success: boolean; data: TaskRow[] }>(`/tasks${query ? `?${query}` : ''}`);
+    return response.data;
   },
 
   /**
    * Get a single task by ID
    */
   getById: async (id: string): Promise<TaskRow> => {
-    return fetchApi<TaskRow>(`/tasks/${id}`);
+    const response = await fetchApi<{ success: boolean; data: TaskRow }>(`/tasks/${id}`);
+    return response.data;
   },
 
   /**
    * Create a new task
    */
   create: async (task: unknown): Promise<TaskRow> => {
-    return fetchApi<TaskRow>('/tasks', {
+    const response = await fetchApi<{ success: boolean; data: TaskRow }>('/tasks', {
       method: 'POST',
       body: JSON.stringify(task),
     });
+    return response.data;
   },
 
   /**
    * Update task status
    */
   updateStatus: async (id: string, status: TaskStatus): Promise<TaskRow> => {
-    return fetchApi<TaskRow>(`/tasks/${id}`, {
+    const response = await fetchApi<{ success: boolean; data: TaskRow }>(`/tasks/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
+    return response.data;
   },
 
   /**
@@ -100,34 +104,38 @@ export const plansApi = {
     if (filters?.taskId) params.append('taskId', filters.taskId);
 
     const query = params.toString();
-    return fetchApi<PlanRow[]>(`/plans${query ? `?${query}` : ''}`);
+    const response = await fetchApi<{ success: boolean; data: PlanRow[] }>(`/plans${query ? `?${query}` : ''}`);
+    return response.data;
   },
 
   /**
    * Get a single plan by ID
    */
   getById: async (id: string): Promise<PlanRow> => {
-    return fetchApi<PlanRow>(`/plans/${id}`);
+    const response = await fetchApi<{ success: boolean; data: PlanRow }>(`/plans/${id}`);
+    return response.data;
   },
 
   /**
    * Create a new plan
    */
   create: async (plan: unknown): Promise<PlanRow> => {
-    return fetchApi<PlanRow>('/plans', {
+    const response = await fetchApi<{ success: boolean; data: PlanRow }>('/plans', {
       method: 'POST',
       body: JSON.stringify(plan),
     });
+    return response.data;
   },
 
   /**
    * Update plan status
    */
   updateStatus: async (id: string, status: string): Promise<PlanRow> => {
-    return fetchApi<PlanRow>(`/plans/${id}`, {
+    const response = await fetchApi<{ success: boolean; data: PlanRow }>(`/plans/${id}`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
+    return response.data;
   },
 
   /**
@@ -153,24 +161,27 @@ export const decisionsApi = {
     if (filters?.taskId) params.append('taskId', filters.taskId);
 
     const query = params.toString();
-    return fetchApi<DecisionRow[]>(`/decisions${query ? `?${query}` : ''}`);
+    const response = await fetchApi<{ success: boolean; data: DecisionRow[] }>(`/decisions${query ? `?${query}` : ''}`);
+    return response.data;
   },
 
   /**
    * Get a single decision by ID
    */
   getById: async (id: string): Promise<DecisionRow> => {
-    return fetchApi<DecisionRow>(`/decisions/${id}`);
+    const response = await fetchApi<{ success: boolean; data: DecisionRow }>(`/decisions/${id}`);
+    return response.data;
   },
 
   /**
    * Create a new decision
    */
   create: async (decision: unknown, decidedBy?: string): Promise<DecisionRow> => {
-    return fetchApi<DecisionRow>('/decisions', {
+    const response = await fetchApi<{ success: boolean; data: DecisionRow }>('/decisions', {
       method: 'POST',
       body: JSON.stringify({ decision, decidedBy }),
     });
+    return response.data;
   },
 
   /**
@@ -196,24 +207,27 @@ export const resultsApi = {
     if (filters?.taskId) params.append('taskId', filters.taskId);
 
     const query = params.toString();
-    return fetchApi<ResultRow[]>(`/results${query ? `?${query}` : ''}`);
+    const response = await fetchApi<{ success: boolean; data: ResultRow[] }>(`/results${query ? `?${query}` : ''}`);
+    return response.data;
   },
 
   /**
    * Get a single result by ID
    */
   getById: async (id: string): Promise<ResultRow> => {
-    return fetchApi<ResultRow>(`/results/${id}`);
+    const response = await fetchApi<{ success: boolean; data: ResultRow }>(`/results/${id}`);
+    return response.data;
   },
 
   /**
    * Create a new result
    */
   create: async (result: unknown): Promise<ResultRow> => {
-    return fetchApi<ResultRow>('/results', {
+    const response = await fetchApi<{ success: boolean; data: ResultRow }>('/results', {
       method: 'POST',
       body: JSON.stringify(result),
     });
+    return response.data;
   },
 
   /**
@@ -315,7 +329,16 @@ export const historyApi = {
     if (filters?.taskId) params.append('taskId', filters.taskId);
 
     const query = params.toString();
-    return fetchApi(`/history${query ? `?${query}` : ''}`);
+    const response = await fetchApi<{ success: boolean; data: Array<{
+      id: string;
+      timestamp: string;
+      type: string;
+      title: string;
+      description?: string;
+      taskId?: string;
+      metadata?: Record<string, unknown>;
+    }> }>(`/history${query ? `?${query}` : ''}`);
+    return response.data;
   },
 };
 

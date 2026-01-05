@@ -11,7 +11,7 @@ services:
 
     # Port mapping: host:container
     ports:
-      - "3000:3000"
+      - "3001:3000"
 
     # Volume mapping for hot reload
     # This allows code changes to be reflected immediately

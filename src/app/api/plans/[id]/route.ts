@@ -9,10 +9,10 @@ export async function GET(
 ) {
   try {
     const plan = await getPlan(params.id);
-    return NextResponse.json(plan);
+    return NextResponse.json({ success: true, data: plan });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Not found' },
+      { success: false, error: error instanceof Error ? error.message : 'Not found' },
       { status: 404 }
     );
   }
@@ -28,16 +28,16 @@ export async function PATCH(
 
     if (!status) {
       return NextResponse.json(
-        { error: 'Status is required' },
+        { success: false, error: 'Status is required' },
         { status: 400 }
       );
     }
 
     const updated = await updatePlanStatus(params.id, status as PlanStatus);
-    return NextResponse.json(updated);
+    return NextResponse.json({ success: true, data: updated });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Update failed' },
+      { success: false, error: error instanceof Error ? error.message : 'Update failed' },
       { status: 400 }
     );
   }

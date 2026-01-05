@@ -1,0 +1,248 @@
+{
+  "success": true,
+  "data": [
+    {
+      "id": "b979fd18-dbc6-4bed-b210-0bbe8c5e6d6e",
+      "plan_id": "plan-3ab497ac-653c-4e89-adff-db95b02575a0",
+      "task_id": "task-00000000-0000-0000-0000-000000000001",
+      "version": "1.0.0",
+      "approach": "Implement minimal viable feature → Create and run basic tests → Deploy feature to production",
+      "reasoning": "Estimated 30s with 3 identified risks",
+      "steps": [
+        {
+          "id": "step-001",
+          "agent": "developer",
+          "action": "Implement minimal viable feature",
+          "inputs": [
+            "Task description and requirements"
+          ],
+          "outputs": [
+            "Implemented feature code"
+          ],
+          "validation": {
+            "command": "npm run lint",
+            "successCriteria": "Feature code is implemented and meets basic requirements"
+          }
+        },
+        {
+          "id": "step-002",
+          "agent": "tester",
+          "action": "Create and run basic tests",
+          "inputs": [
+            "Implemented feature code"
+          ],
+          "outputs": [
+            "Test results"
+          ],
+          "validation": {
+            "command": "npm run test",
+            "successCriteria": "Test results show at least 50% coverage and all basic tests pass"
+          },
+          "dependencies": [
+            "step-001"
+          ]
+        },
+        {
+          "id": "step-003",
+          "agent": "devops",
+          "action": "Deploy feature to production",
+          "inputs": [
+            "Implemented feature code and test results"
+          ],
+          "outputs": [
+            "Feature deployed to production"
+          ],
+          "validation": {
+            "command": "None",
+            "successCriteria": "Feature is deployed to production and functional"
+          },
+          "dependencies": [
+            "step-002"
+          ]
+        }
+      ],
+      "agent": "developer",
+      "estimated_duration": 30,
+      "dependencies": [
+        "step-001",
+        "step-002"
+      ],
+      "risks": [
+        {
+          "severity": "high",
+          "mitigation": "Prioritize testing and ensure at least minimal test coverage is achieved",
+          "description": "Reduced test coverage"
+        },
+        {
+          "severity": "medium",
+          "mitigation": "Perform basic code reviews and ensure coding standards are met",
+          "description": "Potential quality issues"
+        },
+        {
+          "severity": "low",
+          "mitigation": "Create basic documentation and update it as necessary",
+          "description": "Insufficient documentation"
+        }
+      ],
+      "status": "proposed",
+      "created_at": "2026-01-05T21:40:24.624891+00:00"
+    },
+    {
+      "id": "b2114159-4b25-4d67-bb37-0dd2f84d0edc",
+      "plan_id": "plan-64acb58d-0da7-4d0d-833a-d2a8cb1161c3",
+      "task_id": "task-00000000-0000-0000-0000-000000000001",
+      "version": "1.0.0",
+      "approach": "Coordinate workflow and assign tasks → Design system structure and patterns → Implement feature → Create and run tests → Review code for quality and security → Deploy feature to production → Create documentation",
+      "reasoning": "Estimated 60s with 2 identified risks",
+      "steps": [
+        {
+          "id": "step-001",
+          "agent": "orchestrator",
+          "action": "Coordinate workflow and assign tasks",
+          "inputs": [
+            "Task description, repository, and branch"
+          ],
+          "outputs": [
+            "Task assignment and workflow plan"
+          ],
+          "validation": {
+            "command": "None",
+            "successCriteria": "Task assignment and workflow plan are complete and accurate"
+          }
+        },
+        {
+          "id": "step-002",
+          "agent": "architect",
+          "action": "Design system structure and patterns",
+          "inputs": [
+            "Task description and requirements"
+          ],
+          "outputs": [
+            "System design document"
+          ],
+          "validation": {
+            "command": "None",
+            "successCriteria": "System design document is complete and meets requirements"
+          },
+          "dependencies": [
+            "step-001"
+          ]
+        },
+        {
+          "id": "step-003",
+          "agent": "developer",
+          "action": "Implement feature",
+          "inputs": [
+            "System design document"
+          ],
+          "outputs": [
+            "Implemented feature code"
+          ],
+          "validation": {
+            "command": "npm run lint",
+            "successCriteria": "Feature code is implemented and meets coding standards"
+          },
+          "dependencies": [
+            "step-002"
+          ]
+        },
+        {
+          "id": "step-004",
+          "agent": "tester",
+          "action": "Create and run tests",
+          "inputs": [
+            "Implemented feature code"
+          ],
+          "outputs": [
+            "Test results"
+          ],
+          "validation": {
+            "command": "npm run test",
+            "successCriteria": "Test results show at least 80% coverage and all tests pass"
+          },
+          "dependencies": [
+            "step-003"
+          ]
+        },
+        {
+          "id": "step-005",
+          "agent": "reviewer",
+          "action": "Review code for quality and security",
+          "inputs": [
+            "Implemented feature code"
+          ],
+          "outputs": [
+            "Code review report"
+          ],
+          "validation": {
+            "command": "None",
+            "successCriteria": "Code review report is complete and identifies no major issues"
+          },
+          "dependencies": [
+            "step-004"
+          ]
+        },
+        {
+          "id": "step-006",
+          "agent": "devops",
+          "action": "Deploy feature to production",
+          "inputs": [
+            "Implemented feature code and test results"
+          ],
+          "outputs": [
+            "Feature deployed to production"
+          ],
+          "validation": {
+            "command": "None",
+            "successCriteria": "Feature is deployed to production and functional"
+          },
+          "dependencies": [
+            "step-005"
+          ]
+        },
+        {
+          "id": "step-007",
+          "agent": "documenter",
+          "action": "Create documentation",
+          "inputs": [
+            "Implemented feature code and system design document"
+          ],
+          "outputs": [
+            "Feature documentation"
+          ],
+          "validation": {
+            "command": "None",
+            "successCriteria": "Feature documentation is complete and accurate"
+          },
+          "dependencies": [
+            "step-006"
+          ]
+        }
+      ],
+      "agent": "orchestrator",
+      "estimated_duration": 60,
+      "dependencies": [
+        "step-001",
+        "step-002",
+        "step-003",
+        "step-004",
+        "step-005",
+        "step-006"
+      ],
+      "risks": [
+        {
+          "severity": "medium",
+          "mitigation": "Allocate sufficient time for testing and ensure test coverage meets the minimum requirement",
+          "description": "Insufficient testing"
+        },
+        {
+          "severity": "low",
+          "mitigation": "Perform thorough code reviews and ensure coding standards are met",
+          "description": "Code quality issues"
+        }
+      ],
+      "status": "proposed",
+      "created_at": "2026-01-05T21:40:24.529713+00:00"
+    }
+  ]
+}

@@ -120,6 +120,14 @@ describe('PlanningAgent', () => {
         }
       }
     });
+
+    it('accepts feedback and generates plans', async () => {
+      const feedback = 'I need more focus on database security.';
+      const plans = await agent.generatePlans(mockTask, feedback);
+
+      expect(plans).toHaveLength(2);
+      expect(plans[0]?.taskId).toBe(mockTask.id);
+    });
   });
 
   describe('mock fallback', () => {

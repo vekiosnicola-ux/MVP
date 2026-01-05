@@ -5,6 +5,8 @@ import { listResults } from '@/core/db/results';
 import { listTasks } from '@/core/db/tasks';
 import type { HistoryEvent, HistoryEventType } from '@/interfaces/history';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/history
  *
@@ -116,7 +118,7 @@ export async function GET(request: Request) {
       filtered = filtered.filter((e) => e.taskId === taskIdFilter);
     }
 
-    return NextResponse.json(filtered);
+    return NextResponse.json({ success: true, data: filtered });
   } catch (error) {
     console.error('Error fetching history:', error);
     return NextResponse.json(

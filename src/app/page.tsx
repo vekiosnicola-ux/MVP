@@ -33,7 +33,11 @@ export default function DashboardPage(): React.ReactElement {
   }, []);
 
   const awaitingApproval = React.useMemo(
-    () => tasks.filter((task) => task.status === 'planning' || task.status === 'awaiting_human_decision'),
+    () => tasks.filter((task) => task.status === 'awaiting_human_decision'),
+    [tasks]
+  );
+  const planning = React.useMemo(
+    () => tasks.filter((task) => task.status === 'planning'),
     [tasks]
   );
   const inProgress = React.useMemo(
@@ -75,13 +79,20 @@ export default function DashboardPage(): React.ReactElement {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <StatCard
           title="Awaiting Approval"
           value={awaitingApproval.length}
           icon={CheckCircle}
           variant="warning"
           description="Tasks need your decision"
+        />
+        <StatCard
+          title="Planning"
+          value={planning.length}
+          icon={Clock}
+          variant="default"
+          description="AI is generating plans"
         />
         <StatCard
           title="In Progress"

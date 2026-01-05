@@ -9,10 +9,11 @@ export async function GET(
 ) {
   try {
     const task = await getTask(params.id);
-    return NextResponse.json(task);
+    return NextResponse.json({ success: true, data: task });
   } catch (error) {
+    console.error(`[API] Error getting task ${params.id}:`, error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Not found' },
+      { success: false, error: error instanceof Error ? error.message : 'Not found' },
       { status: 404 }
     );
   }
@@ -28,16 +29,17 @@ export async function PATCH(
 
     if (!status) {
       return NextResponse.json(
-        { error: 'Status is required' },
+        { success: false, error: 'Status is required' },
         { status: 400 }
       );
     }
 
     const updated = await updateTaskStatus(params.id, status as TaskStatus);
-    return NextResponse.json(updated);
+    return NextResponse.json({ success: true, data: updated });
   } catch (error) {
+    console.error(`[API] Error updating task ${params.id}:`, error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Update failed' },
+      { success: false, error: error instanceof Error ? error.message : 'Update failed' },
       { status: 400 }
     );
   }

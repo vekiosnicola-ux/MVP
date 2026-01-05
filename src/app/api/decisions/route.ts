@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
     const decisions = await listDecisions({ category, taskId });
 
-    return NextResponse.json(decisions);
+    return NextResponse.json({ success: true, data: decisions });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error' },

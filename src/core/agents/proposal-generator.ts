@@ -17,8 +17,8 @@ export class ProposalGenerator {
   /**
    * Generates multiple plans for a given task using AI
    */
-  async generateProposals(task: Task): Promise<Plan[]> {
-    return planningAgent.generatePlans(task);
+  async generateProposals(task: Task, feedback?: string): Promise<Plan[]> {
+    return planningAgent.generatePlans(task, feedback);
   }
 
   /**

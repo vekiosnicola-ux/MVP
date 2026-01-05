@@ -51,6 +51,7 @@ export class WorkflowEngine {
     const { getTask } = await import('../db/tasks');
     const { proposalGenerator } = await import('../agents/proposal-generator');
 
+    // eslint-disable-next-line no-console
     console.log('[WorkflowEngine] processTask started for:', taskId, feedback ? 'with feedback' : '');
 
     const taskRow = await getTask(taskId);
@@ -69,21 +70,28 @@ export class WorkflowEngine {
       metadata: taskRow.metadata || undefined
     };
 
+    // eslint-disable-next-line no-console
     console.log('[WorkflowEngine] Generating proposals for task:', task.id);
 
     // Generate proposals (AI work)
     const plans = await proposalGenerator.generateProposals(task, feedback);
 
+    // eslint-disable-next-line no-console
     console.log('[WorkflowEngine] Generated', plans.length, 'plans');
+    // eslint-disable-next-line no-console
     console.log('[WorkflowEngine] First plan ID:', plans[0]?.id);
 
     // Save plans to DB
     for (const plan of plans) {
+      // eslint-disable-next-line no-console
       console.log('[WorkflowEngine] Saving plan:', plan.id);
+      // eslint-disable-next-line no-console
       console.log('[WorkflowEngine] Plan steps:', plan.steps.length);
+      // eslint-disable-next-line no-console
       console.log('[WorkflowEngine] First step:', JSON.stringify(plan.steps[0], null, 2));
       try {
         await createPlan(plan);
+        // eslint-disable-next-line no-console
         console.log('[WorkflowEngine] Plan saved:', plan.id);
       } catch (saveErr) {
         const errMsg = saveErr instanceof Error ? saveErr.message : String(saveErr);

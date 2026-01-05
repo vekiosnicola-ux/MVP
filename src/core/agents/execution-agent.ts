@@ -89,6 +89,7 @@ export class ExecutionAgent {
 
     // Initialize real execution components if in real mode
     if (this.options.mode === 'real') {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       this.snapshotManager = new GitSnapshotManager(this.options.workingDir!);
       this.commandExecutor = new CommandExecutor({
         cwd: this.options.workingDir,
@@ -107,6 +108,7 @@ export class ExecutionAgent {
     }
 
     if (mode === 'real') {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       this.snapshotManager = new GitSnapshotManager(this.options.workingDir!);
       this.commandExecutor = new CommandExecutor({
         cwd: this.options.workingDir,
@@ -135,6 +137,7 @@ export class ExecutionAgent {
 
     // Create snapshot in real mode
     if (isRealMode && this.options.enableSnapshot && this.snapshotManager) {
+      // eslint-disable-next-line no-console
       console.log(`[ExecutionAgent] Real mode - creating git snapshot`);
       const snapshotResult = await this.snapshotManager.createSnapshot(taskId);
       if (snapshotResult.success) {
@@ -205,6 +208,7 @@ export class ExecutionAgent {
       if (snapshot && this.snapshotManager) {
         if (overallStatus === 'failure' || circuitBroken) {
           // Rollback on failure
+          // eslint-disable-next-line no-console
           console.log(`[ExecutionAgent] Execution failed - rolling back to snapshot`);
           await this.snapshotManager.rollback(snapshot.id);
         } else {
@@ -216,6 +220,7 @@ export class ExecutionAgent {
     } catch (error) {
       // Unexpected error - rollback if possible
       if (snapshot && this.snapshotManager) {
+        // eslint-disable-next-line no-console
         console.log(`[ExecutionAgent] Unexpected error - rolling back`);
         await this.snapshotManager.rollback(snapshot.id);
       }
@@ -272,6 +277,7 @@ export class ExecutionAgent {
 
         // Step failed but didn't throw - check if we should retry
         if (attempt < this.circuitBreaker.maxRetries) {
+          // eslint-disable-next-line no-console
           console.log(`[ExecutionAgent] Step ${step.id} failed, retrying (${attempt + 1}/${this.circuitBreaker.maxRetries})`);
           await this.delay(1000); // Wait 1s before retry
           continue;
@@ -283,6 +289,7 @@ export class ExecutionAgent {
         console.error(`[ExecutionAgent] Step ${step.id} threw error:`, lastError.message);
 
         if (attempt < this.circuitBreaker.maxRetries) {
+          // eslint-disable-next-line no-console
           console.log(`[ExecutionAgent] Retrying step ${step.id} (${attempt + 1}/${this.circuitBreaker.maxRetries})`);
           await this.delay(1000);
           continue;
@@ -373,7 +380,9 @@ export class ExecutionAgent {
       };
     }
 
+    // eslint-disable-next-line no-console
     console.log(`[ExecutionAgent] Running: ${command}`);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const result = await this.commandExecutor!.execute(command);
     const duration = Math.round((Date.now() - startTime) / 1000);
 

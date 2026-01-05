@@ -148,6 +148,7 @@ Just the raw JSON object.`;
       temperature: 0.3, // Lower temperature for more consistent JSON
     });
 
+    // eslint-disable-next-line no-console
     console.log('[GroqClient] Raw response:', response.content.slice(0, 500));
 
     try {
@@ -157,7 +158,7 @@ Just the raw JSON object.`;
       // Remove markdown code blocks if present (handle various formats)
       // Match ```json or ``` at start, and ``` at end
       const codeBlockMatch = jsonStr.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
-      if (codeBlockMatch) {
+      if (codeBlockMatch && codeBlockMatch[1]) {
         jsonStr = codeBlockMatch[1];
       } else {
         // Fallback: simple strip
@@ -172,6 +173,7 @@ Just the raw JSON object.`;
       }
 
       const parsed = JSON.parse(jsonStr.trim()) as T;
+      // eslint-disable-next-line no-console
       console.log('[GroqClient] Parsed JSON keys:', Object.keys(parsed as object));
       return parsed;
     } catch (parseError) {

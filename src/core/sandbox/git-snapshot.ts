@@ -73,9 +73,12 @@ export class GitSnapshotManager {
 
       this.snapshots.set(snapshot.id, snapshot);
 
+      // eslint-disable-next-line no-console
       console.log(`[GitSnapshot] Created snapshot ${snapshot.id}`);
+      // eslint-disable-next-line no-console
       console.log(`  Branch: ${branchName}, Commit: ${commitHash.slice(0, 8)}`);
       if (stashRef) {
+        // eslint-disable-next-line no-console
         console.log(`  Stashed changes: ${stashRef}`);
       }
 
@@ -98,6 +101,7 @@ export class GitSnapshotManager {
     }
 
     try {
+      // eslint-disable-next-line no-console
       console.log(`[GitSnapshot] Rolling back to ${snapshotId}`);
 
       // Discard all uncommitted changes
@@ -114,13 +118,16 @@ export class GitSnapshotManager {
       if (snapshot.stashRef) {
         try {
           await this.execGit(`stash pop ${snapshot.stashRef}`);
+          // eslint-disable-next-line no-console
           console.log(`[GitSnapshot] Restored stashed changes`);
         } catch {
           // Stash may have been dropped or conflict
+          // eslint-disable-next-line no-console
           console.warn(`[GitSnapshot] Could not restore stash: ${snapshot.stashRef}`);
         }
       }
 
+      // eslint-disable-next-line no-console
       console.log(`[GitSnapshot] Rollback complete`);
       return { success: true };
     } catch (error) {
@@ -147,6 +154,7 @@ export class GitSnapshotManager {
     }
 
     this.snapshots.delete(snapshotId);
+    // eslint-disable-next-line no-console
     console.log(`[GitSnapshot] Discarded snapshot ${snapshotId}`);
   }
 

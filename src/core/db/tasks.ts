@@ -55,7 +55,7 @@ export async function updateTaskStatus(taskId: string, status: TaskStatus): Prom
   return data as TaskRow;
 }
 
-export async function listTasks(filters?: { status?: TaskStatus; type?: string }): Promise<TaskRow[]> {
+export async function listTasks(filters?: { status?: TaskStatus; type?: string; limit?: number }): Promise<TaskRow[]> {
   const supabase = getSupabaseClient();
 
   let query = supabase.from('tasks').select('*').order('created_at', { ascending: false });
@@ -66,6 +66,10 @@ export async function listTasks(filters?: { status?: TaskStatus; type?: string }
 
   if (filters?.type) {
     query = query.eq('type', filters.type);
+  }
+
+  if (filters?.limit) {
+    query = query.limit(filters.limit);
   }
 
   const { data, error } = await query;

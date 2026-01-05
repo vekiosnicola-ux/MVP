@@ -24,7 +24,8 @@ export type TransitionAction =
   | 'VERIFY_SUCCESS'
   | 'VERIFY_FAILURE'
   | 'FAIL'
-  | 'RETRY';
+  | 'RETRY'
+  | 'REPLAN';
 
 export interface TransitionContext {
   taskId: string;
@@ -114,6 +115,10 @@ const TRANSITIONS: Record<TransitionAction, TransitionDefinition> = {
   },
   RETRY: {
     from: ['plan_rejected', 'failed'],
+    to: 'awaiting_proposals',
+  },
+  REPLAN: {
+    from: ['plan_rejected', 'awaiting_human_decision'],
     to: 'awaiting_proposals',
   },
 };

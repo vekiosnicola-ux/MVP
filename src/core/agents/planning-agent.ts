@@ -213,8 +213,10 @@ export class PlanningAgent {
         5    // top 5 overrides
       );
       if (planningContext.overrides.length > 0) {
+        // eslint-disable-next-line no-console
         console.log(`[PlanningAgent] Found ${planningContext.overrides.length} relevant overrides for ${task.type}`);
         planningContext.overrides.forEach(o => {
+          // eslint-disable-next-line no-console
           console.log(`  - [${Math.round(o.relevanceScore * 100)}%] ${o.ai_suggestion.slice(0, 50)}...`);
         });
       }
@@ -228,9 +230,11 @@ export class PlanningAgent {
       planningContext.bestApproach = await getMostSuccessfulApproach(task.type, task.context.repository);
 
       if (planningContext.patternStats) {
+        // eslint-disable-next-line no-console
         console.log(`[PlanningAgent] Pattern stats for ${task.type}: ${Math.round(planningContext.patternStats.approvalRate * 100)}% approval rate`);
       }
       if (planningContext.bestApproach) {
+        // eslint-disable-next-line no-console
         console.log(`[PlanningAgent] Most successful approach: "${planningContext.bestApproach}"`);
       }
     } catch (error) {
@@ -253,6 +257,7 @@ export class PlanningAgent {
       let response: GeneratedProposals;
 
       if (useGroq) {
+        // eslint-disable-next-line no-console
         console.log('[PlanningAgent] Using Groq (Llama 3.3 70B) - FREE');
         response = await groqClient.generateJSON<GeneratedProposals>(prompt, {
           system: SYSTEM_PROMPT,
@@ -260,6 +265,7 @@ export class PlanningAgent {
           temperature: 0.7,
         });
       } else {
+        // eslint-disable-next-line no-console
         console.log('[PlanningAgent] Using Claude API');
         response = await claudeClient.generateJSON<GeneratedProposals>(prompt, {
           system: SYSTEM_PROMPT,
@@ -268,10 +274,13 @@ export class PlanningAgent {
         });
       }
 
+      // eslint-disable-next-line no-console
       console.log('[PlanningAgent] Got proposals:', response.proposals.length);
+      // eslint-disable-next-line no-console
       console.log('[PlanningAgent] First proposal steps:', response.proposals[0]?.steps?.length);
 
       return response.proposals.map((proposal, idx) => {
+        // eslint-disable-next-line no-console
         console.log(`[PlanningAgent] Converting proposal ${idx + 1}:`, proposal.approach);
         try {
           return this.convertToPlans(proposal, task);
