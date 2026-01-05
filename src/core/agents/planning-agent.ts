@@ -7,9 +7,9 @@
 
 import type { Plan, PlanStep, Risk, AgentType, RiskSeverity } from '@/interfaces/plan';
 import type { Task } from '@/interfaces/task';
-import type { HumanOverride } from '@/interfaces/workflow';
 
-import { getRelevantOverrides } from '../db/overrides';
+import { getRelevantOverridesWithSimilarity, type ScoredOverride } from '../db/overrides';
+import { getPatternStats, getMostSuccessfulApproach, type PatternStats } from '../db/patterns';
 
 import { claudeClient } from './claude-client';
 
@@ -60,23 +60,69 @@ You work with a team of specialized agents:
 Create practical, actionable plans that can be executed step-by-step.
 Each step should have clear validation criteria.`;
 
-function formatOverridesContext(overrides: HumanOverride[]): string {
+function formatOverridesContext(overrides: ScoredOverride[]): string {
   if (overrides.length === 0) return '';
 
   const formatted = overrides.map((o) => {
-    return `- When AI suggested "${o.ai_suggestion}", human chose "${o.human_decision}" (reason: ${o.rationale})`;
+    const relevance = Math.round(o.relevanceScore * 100);
+    return `- [${relevance}% match] When AI suggested "${o.ai_suggestion}", human chose "${o.human_decision}" (reason: ${o.rationale})`;
   }).join('\n');
 
   return `
 HUMAN PREFERENCES (from past decisions on similar tasks):
 ${formatted}
 
-Consider these preferences when generating proposals. Align with human decisions where applicable.
+Consider these preferences when generating proposals. Higher match % = more relevant.
 `;
 }
 
-function createPlanningPrompt(task: Task, overrides: HumanOverride[] = []): string {
-  const overridesContext = formatOverridesContext(overrides);
+function formatPatternContext(stats: PatternStats | null, bestApproach: string | null): string {
+  if (!stats) return '';
+
+  const lines: string[] = [
+    '',
+    'HISTORICAL APPROVAL PATTERNS:',
+  ];
+
+  if (stats.approvalRate > 0) {
+    lines.push(`- Overall approval rate for ${stats.category}: ${Math.round(stats.approvalRate * 100)}%`);
+  }
+
+  if (bestApproach) {
+    lines.push(`- Most successful approach: "${bestApproach}"`);
+  }
+
+  if (stats.topApproaches.length > 0) {
+    const approaches = stats.topApproaches
+      .filter(a => a.count >= 2)
+      .map(a => `  - "${a.approach}": ${Math.round(a.approvalRate * 100)}% approval (${a.count} decisions)`)
+      .slice(0, 3);
+    if (approaches.length > 0) {
+      lines.push('- Approach success rates:');
+      lines.push(...approaches);
+    }
+  }
+
+  if (stats.commonRejections.length > 0) {
+    lines.push(`- Common rejection reasons: ${stats.commonRejections.slice(0, 3).join(', ')}`);
+  }
+
+  lines.push('');
+  lines.push('Consider these patterns when designing proposals. Favor approaches with higher approval rates.');
+  lines.push('');
+
+  return lines.join('\n');
+}
+
+interface PlanningContext {
+  overrides: ScoredOverride[];
+  patternStats: PatternStats | null;
+  bestApproach: string | null;
+}
+
+function createPlanningPrompt(task: Task, context: PlanningContext): string {
+  const overridesContext = formatOverridesContext(context.overrides);
+  const patternContext = formatPatternContext(context.patternStats, context.bestApproach);
 
   return `Generate 2 implementation proposals for this task:
 
@@ -93,7 +139,7 @@ CONSTRAINTS:
 - Requires approval: ${task.constraints.requiresApproval}
 - Breaking changes allowed: ${task.constraints.breakingChangesAllowed}
 - Min test coverage: ${task.constraints.testCoverageMin}%
-${overridesContext}
+${overridesContext}${patternContext}
 Generate exactly 2 proposals:
 1. A STANDARD approach - thorough, safe, follows best practices
 2. A FAST-TRACK approach - minimal viable implementation, faster delivery
@@ -141,18 +187,48 @@ export class PlanningAgent {
 
   /**
    * Generate implementation plans for a task
+   * Uses similarity-based override matching and historical pattern data
    */
   async generatePlans(task: Task): Promise<Plan[]> {
-    // Fetch relevant human overrides for context
-    let overrides: HumanOverride[] = [];
+    // Build planning context from historical data
+    const planningContext: PlanningContext = {
+      overrides: [],
+      patternStats: null,
+      bestApproach: null,
+    };
+
+    // Fetch relevant human overrides using similarity matching
     try {
-      overrides = await getRelevantOverrides(task.type, task.context.repository);
-      if (overrides.length > 0) {
-        console.log(`[PlanningAgent] Found ${overrides.length} relevant overrides for ${task.type}`);
+      planningContext.overrides = await getRelevantOverridesWithSimilarity(
+        task.type,
+        task.description,
+        task.context.repository,
+        0.1, // minimum 10% similarity
+        5    // top 5 overrides
+      );
+      if (planningContext.overrides.length > 0) {
+        console.log(`[PlanningAgent] Found ${planningContext.overrides.length} relevant overrides for ${task.type}`);
+        planningContext.overrides.forEach(o => {
+          console.log(`  - [${Math.round(o.relevanceScore * 100)}%] ${o.ai_suggestion.slice(0, 50)}...`);
+        });
       }
     } catch (error) {
       console.warn('[PlanningAgent] Could not fetch overrides:', error);
-      // Continue without overrides
+    }
+
+    // Fetch historical approval patterns
+    try {
+      planningContext.patternStats = await getPatternStats(task.type, task.context.repository);
+      planningContext.bestApproach = await getMostSuccessfulApproach(task.type, task.context.repository);
+
+      if (planningContext.patternStats) {
+        console.log(`[PlanningAgent] Pattern stats for ${task.type}: ${Math.round(planningContext.patternStats.approvalRate * 100)}% approval rate`);
+      }
+      if (planningContext.bestApproach) {
+        console.log(`[PlanningAgent] Most successful approach: "${planningContext.bestApproach}"`);
+      }
+    } catch (error) {
+      console.warn('[PlanningAgent] Could not fetch pattern stats:', error);
     }
 
     // Check if Claude is configured
@@ -162,7 +238,7 @@ export class PlanningAgent {
     }
 
     try {
-      const prompt = createPlanningPrompt(task, overrides);
+      const prompt = createPlanningPrompt(task, planningContext);
 
       const response = await claudeClient.generateJSON<GeneratedProposals>(prompt, {
         system: SYSTEM_PROMPT,
