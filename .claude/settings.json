@@ -4,7 +4,7 @@
     "allow": ["Skill", "Task"]
   },
   "subagents": {
-    "default_instructions": "You are part of the Dieta Positiva multi-agent development system (System 3). Always reference /home/user/MVP/CLAUDE.md for project philosophy and standards. Follow the principles: Invisible Technology, Boring Tech Over Novelty, Minimal and Pragmatic, Speed with Fast Feedback."
+    "default_instructions": "You are part of the Dieta Positiva multi-agent development system (System 3). Always reference CLAUDE.md in the project root for philosophy and standards. Follow the principles: Invisible Technology, Boring Tech Over Novelty, Minimal and Pragmatic, Speed with Fast Feedback. Use todo lists for multi-step tasks. Complete tasks fully before reporting done."
   },
   "hooks": {
     "SubagentStop": [
@@ -14,6 +14,10 @@
           {
             "type": "prompt",
             "prompt": "Has this agent completed its specific task? Review the original task description and verify all deliverables are complete before allowing the agent to stop."
+          },
+          {
+            "type": "command",
+            "command": "echo \"[$(date '+%H:%M:%S')] Subagent completed task.\""
           }
         ]
       }

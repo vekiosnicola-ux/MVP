@@ -83,10 +83,10 @@ Virgilio is:
 
 ## Important Files
 
-- **`/home/user/MVP/CLAUDE.md`**: How to work on this project (MUST READ)
-- **`/home/user/MVP/DECISIONS.md`**: Architectural decision log
-- **`/home/user/MVP/docs/architecture.md`**: Detailed technical architecture
-- **`/home/user/MVP/README.md`**: Project overview
+- **`CLAUDE.md`**: How to work on this project (MUST READ)
+- **`DECISIONS.md`**: Architectural decision log
+- **`docs/architecture.md`**: Detailed technical architecture
+- **`README.md`**: Project overview
 
 ## Build Sequence
 
