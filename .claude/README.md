@@ -19,7 +19,11 @@ This directory contains the Claude Code multi-agent setup for the Dieta Positiva
 │   └── tester.md          # Testing specialist
 └── skills/                # Reusable skills
     ├── dieta-positiva-context/  # Project context for all agents
-    └── run-test-suite/          # Test runner with summary
+    ├── run-test-suite/          # Test runner with summary
+    ├── verify-setup/            # Setup verification checklist
+    ├── simplify/                # Over-engineering detector
+    ├── pr-preflight/            # PR readiness checks
+    └── dead-code/               # Unused code detector
 ```
 
 ## Setup for New Environments
@@ -60,8 +64,63 @@ The coordinator (`agents/coordinator.md`) defines when to use each model:
 
 Skills are invoked with `/skill-name` in the CLI:
 
+### Core Skills
 - `/dieta-positiva-context` - Load project context
 - `/run-test-suite` - Run tests with formatted summary
+- `/verify-setup` - Check Claude Code configuration
+
+### Quality Skills
+- `/simplify` - Analyze code for over-engineering and complexity
+- `/pr-preflight` - Run checks before creating a PR (git hygiene, types, lint, tests)
+- `/dead-code` - Detect unused exports, orphaned files, commented code
+
+## MCP Servers
+
+MCP (Model Context Protocol) servers extend Claude Code with external capabilities.
+
+### Configured Servers
+
+| Server | Transport | Purpose |
+|--------|-----------|---------|
+| **context7** | stdio | Up-to-date library documentation (Next.js, React, Supabase) |
+| **github** | stdio | GitHub API access (issues, PRs, code search) |
+| **puppeteer** | stdio | Browser automation and visual testing |
+| **memory** | stdio | Persistent memory across sessions |
+| **supabase** | http | Direct database access, schema inspection |
+
+### Setup for New Environments
+
+MCP servers are stored in `~/.claude.json` (user-level), not in the repo. To configure on a new machine:
+
+```bash
+# Context7 (no auth)
+claude mcp add context7 --transport stdio -- npx -y @upstash/context7-mcp@latest
+
+# GitHub (uses GITHUB_TOKEN env var if set)
+claude mcp add github --transport stdio -- npx -y @modelcontextprotocol/server-github
+
+# Puppeteer (no auth)
+claude mcp add puppeteer --transport stdio -- npx -y @modelcontextprotocol/server-puppeteer
+
+# Memory (no auth)
+claude mcp add memory --transport stdio -- npx -y @modelcontextprotocol/server-memory
+
+# Supabase (uses OAuth browser flow)
+# Will prompt for Supabase login on first use
+claude mcp add supabase "https://mcp.supabase.com/mcp?project_ref=YOUR_PROJECT_REF" --transport http
+```
+
+### Verifying MCP Servers
+
+```bash
+claude mcp list
+```
+
+### Removing an MCP Server
+
+```bash
+claude mcp remove <server-name>
+```
 
 ## Hooks
 
