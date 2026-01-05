@@ -6,7 +6,7 @@ export async function GET() {
     const supabase = getSupabaseClient();
 
     // Simple query to test connection
-    const { data, error, count } = await supabase
+    const { error, count } = await supabase
       .from('tasks')
       .select('*', { count: 'exact', head: true });
 

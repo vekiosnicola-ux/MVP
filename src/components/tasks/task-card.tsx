@@ -7,12 +7,12 @@ import * as React from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import type { MockTask } from '@/lib/mock-data';
+import type { TaskRow } from '@/interfaces/task';
 import { cn } from '@/lib/utils';
 
 
 interface TaskCardProps {
-  task: MockTask;
+  task: TaskRow;
 }
 
 const cardVariants = {
@@ -36,8 +36,10 @@ function getStatusVariant(status: string): 'default' | 'success' | 'warning' | '
     case 'completed':
       return 'success';
     case 'executing':
+    case 'awaiting_verification':
       return 'info';
     case 'planning':
+    case 'awaiting_human_decision':
       return 'warning';
     case 'failed':
       return 'danger';
@@ -52,8 +54,14 @@ function getStatusLabel(status: string): string {
       return 'Completed';
     case 'executing':
       return 'In Progress';
+    case 'awaiting_verification':
+      return 'Awaiting Verification';
     case 'planning':
-      return 'Awaiting Approval';
+      return 'Awaiting Proposals';
+    case 'awaiting_human_decision':
+      return 'Awaiting Decision';
+    case 'approved':
+      return 'Approved';
     case 'failed':
       return 'Failed';
     case 'pending':
@@ -95,7 +103,7 @@ export function TaskCard({ task }: TaskCardProps): React.ReactElement {
                 <Badge variant="default" className="text-xs">
                   {task.type}
                 </Badge>
-                {task.metadata.priority && (
+                {task.metadata?.priority && (
                   <span className={cn('text-xs font-medium uppercase', getPriorityColor(task.metadata.priority))}>
                     {task.metadata.priority}
                   </span>
@@ -112,7 +120,7 @@ export function TaskCard({ task }: TaskCardProps): React.ReactElement {
               {getStatusLabel(task.status)}
             </Badge>
           </div>
-          {task.metadata.labels && task.metadata.labels.length > 0 && (
+          {task.metadata?.labels && task.metadata.labels.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-3">
               {task.metadata.labels.slice(0, 3).map((label) => (
                 <span

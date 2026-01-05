@@ -1,5 +1,5 @@
 export type TaskType = 'feature' | 'bugfix' | 'refactor' | 'docs' | 'test' | 'infra';
-export type TaskStatus = 'pending' | 'planning' | 'approved' | 'executing' | 'completed' | 'failed';
+export type TaskStatus = 'pending' | 'planning' | 'awaiting_human_decision' | 'approved' | 'executing' | 'awaiting_verification' | 'completed' | 'failed';
 export type Priority = 'low' | 'medium' | 'high' | 'critical';
 
 export interface TaskContext {

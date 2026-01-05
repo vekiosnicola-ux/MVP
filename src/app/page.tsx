@@ -1,18 +1,67 @@
 'use client';
 
-import { CheckCircle, Clock, ListTodo, TrendingUp } from 'lucide-react';
+import { CheckCircle, Clock, ListTodo, TrendingUp, AlertCircle } from 'lucide-react';
 import * as React from 'react';
 
 import { StatCard } from '@/components/stats/stat-card';
 import { TaskList } from '@/components/tasks/task-list';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { mockTasks, getTasksAwaitingApproval, getTasksInProgress, getCompletedTasks } from '@/lib/mock-data';
+import { tasksApi } from '@/lib/api';
 
 export default function DashboardPage(): React.ReactElement {
-  const awaitingApproval = getTasksAwaitingApproval();
-  const inProgress = getTasksInProgress();
-  const completed = getCompletedTasks();
-  const recentTasks = mockTasks.slice(0, 5);
+  const [tasks, setTasks] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    async function loadTasks() {
+      try {
+        setLoading(true);
+        setError(null);
+        const allTasks = await tasksApi.list();
+        setTasks(allTasks);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load tasks');
+        console.error('Error loading tasks:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadTasks();
+  }, []);
+
+  const awaitingApproval = React.useMemo(
+    () => tasks.filter((task) => task.status === 'planning' || task.status === 'awaiting_human_decision'),
+    [tasks]
+  );
+  const inProgress = React.useMemo(
+    () => tasks.filter((task) => task.status === 'executing' || task.status === 'awaiting_verification'),
+    [tasks]
+  );
+  const completed = React.useMemo(
+    () => tasks.filter((task) => task.status === 'completed'),
+    [tasks]
+  );
+  const recentTasks = React.useMemo(() => tasks.slice(0, 5), [tasks]);
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card className="border-accent-danger">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-3 text-accent-danger">
+              <AlertCircle className="h-5 w-5" />
+              <div>
+                <h3 className="font-semibold">Error loading tasks</h3>
+                <p className="text-sm text-text-secondary">{error}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -49,7 +98,7 @@ export default function DashboardPage(): React.ReactElement {
         />
         <StatCard
           title="Total Tasks"
-          value={mockTasks.length}
+          value={tasks.length}
           icon={Clock}
           variant="default"
           description="All time"
@@ -62,7 +111,13 @@ export default function DashboardPage(): React.ReactElement {
           <CardTitle>Recent Tasks</CardTitle>
         </CardHeader>
         <CardContent>
-          <TaskList tasks={recentTasks} />
+          {loading ? (
+            <div className="text-center py-12">
+              <p className="text-text-secondary">Loading tasks...</p>
+            </div>
+          ) : (
+            <TaskList tasks={recentTasks} />
+          )}
         </CardContent>
       </Card>
     </div>
