@@ -27,20 +27,40 @@ export async function POST(request: Request) {
       );
     }
 
-    // If approved, start execution
+    // If approved, start execution and run the plan
     if (decisionResult.newState === 'plan_approved' && validatedDecision.planId) {
+      // Transition to executing state
       const executionResult = await workflowEngine.executeApprovedPlan(
         validatedDecision.planId,
         validatedDecision.taskId
       );
 
+      if (!executionResult.success) {
+        return NextResponse.json({
+          status: executionResult.newState,
+          message: 'Failed to start execution',
+          taskId: validatedDecision.taskId,
+          transition: { decision: decisionResult, execution: executionResult },
+        });
+      }
+
+      // Run the execution agent and record results
+      const { resultId, transition: resultTransition } = await workflowEngine.runExecution(
+        validatedDecision.planId,
+        validatedDecision.taskId
+      );
+
       return NextResponse.json({
-        status: executionResult.newState,
-        message: executionResult.success ? 'Plan approved and execution started' : 'Execution failed to start',
+        status: resultTransition.newState,
+        message: resultTransition.success
+          ? 'Plan approved, executed, and awaiting verification'
+          : 'Execution completed with issues',
         taskId: validatedDecision.taskId,
+        resultId,
         transition: {
           decision: decisionResult,
           execution: executionResult,
+          result: resultTransition,
         }
       });
     }

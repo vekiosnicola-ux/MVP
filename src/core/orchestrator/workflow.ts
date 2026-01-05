@@ -138,7 +138,7 @@ export class WorkflowEngine {
   }
 
   /**
-   * Start executing an approved plan
+   * Start executing an approved plan (state transition only)
    */
   async executeApprovedPlan(planId: string, taskId: string): Promise<TransitionResult> {
     const { getTask } = await import('../db/tasks');
@@ -158,6 +158,38 @@ export class WorkflowEngine {
     }
 
     return result;
+  }
+
+  /**
+   * Run the execution agent on an approved plan
+   * This actually executes the plan and records results
+   */
+  async runExecution(planId: string, taskId: string): Promise<{ resultId: string; transition: TransitionResult }> {
+    const { getPlan } = await import('../db/plans');
+    const { executionAgent } = await import('../agents/execution-agent');
+
+    // Get the plan
+    const planRow = await getPlan(planId);
+    if (!planRow) throw new Error('Plan not found');
+
+    // Convert PlanRow to Plan interface
+    const plan: Plan = {
+      id: planRow.plan_id,
+      taskId: planRow.task_id,
+      version: planRow.version,
+      steps: planRow.steps,
+      estimatedDuration: planRow.estimated_duration,
+      risks: planRow.risks || [],
+      metadata: {
+        createdAt: planRow.created_at,
+      },
+    };
+
+    // Execute the plan
+    const executionResult = await executionAgent.execute(plan, taskId);
+
+    // Record the result
+    return this.recordResult(executionResult);
   }
 
   /**
