@@ -1,4 +1,5 @@
 import { createDecision } from '../db/decisions';
+import { recordApprovalPattern } from '../db/patterns';
 import { createPlan, updatePlanStatus } from '../db/plans';
 import { createResult } from '../db/results';
 import { createTask, updateTaskStatus } from '../db/tasks';
@@ -85,9 +86,12 @@ export class WorkflowEngine {
 
   /**
    * Record human decision (approve or reject)
+   * Also records approval pattern for learning loop
    */
   async recordDecision(decision: Decision, decidedBy?: string): Promise<TransitionResult> {
     const { getTask } = await import('../db/tasks');
+    const { getPlan } = await import('../db/plans');
+
     const taskRow = await getTask(decision.taskId);
     if (!taskRow) throw new Error('Task not found');
 
@@ -97,7 +101,7 @@ export class WorkflowEngine {
     await createDecision(decision, decidedBy);
 
     // Determine if approved or rejected based on decision
-    const isApproval = decision.selectedOption >= 0 && decision.planId;
+    const isApproval = decision.selectedOption >= 0 && Boolean(decision.planId);
 
     const context: TransitionContext = {
       taskId: decision.taskId,
@@ -123,6 +127,31 @@ export class WorkflowEngine {
         if (decision.planId) {
           await updatePlanStatus(decision.planId, 'rejected');
         }
+      }
+    }
+
+    // Record approval pattern for learning loop (fire and forget)
+    if (decision.planId) {
+      try {
+        const planRow = await getPlan(decision.planId);
+        if (planRow) {
+          // Calculate time to decision (minutes from plan creation)
+          const createdAt = new Date(planRow.created_at);
+          const now = new Date();
+          const timeToDecision = Math.round((now.getTime() - createdAt.getTime()) / 60000);
+
+          await recordApprovalPattern(
+            taskRow.type,                    // category (task type)
+            planRow.approach || 'Unknown',   // approach_type
+            isApproval,                      // approved
+            timeToDecision,                  // time to decision in minutes
+            isApproval ? undefined : decision.rationale, // rejection reason
+            taskRow.context.repository       // project_id
+          );
+        }
+      } catch (patternError) {
+        // Don't fail the decision if pattern recording fails
+        console.warn('[WorkflowEngine] Failed to record approval pattern:', patternError);
       }
     }
 
