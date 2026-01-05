@@ -1,12 +1,19 @@
 /**
- * Execution Agent (Mock)
+ * Execution Agent
  *
- * Simulates plan execution for workflow testing.
- * Will be replaced with real execution in a future phase.
+ * Executes plans with support for both mock and real modes.
+ * Real mode: executes shell commands with git snapshot rollback.
+ * Mock mode: simulates execution for testing.
  */
 
 import type { Plan, PlanStep } from '@/interfaces/plan';
 import type { Result, StepResult, Artifacts, QualityGates } from '@/interfaces/result';
+
+import {
+  GitSnapshotManager,
+  CommandExecutor,
+  type Snapshot,
+} from '../sandbox';
 
 // ============================================================================
 // Types
@@ -21,15 +28,23 @@ export interface CircuitBreakerConfig {
   maxRetries: number;
 }
 
+export type ExecutionMode = 'mock' | 'real';
+
 export interface ExecutionOptions {
-  /** Simulate delay per step (ms) */
+  /** Execution mode: 'mock' for testing, 'real' for actual execution */
+  mode?: ExecutionMode;
+  /** Working directory for real execution */
+  workingDir?: string;
+  /** Simulate delay per step (ms) - mock mode only */
   stepDelay?: number;
-  /** Probability of step failure (0-1) */
+  /** Probability of step failure (0-1) - mock mode only */
   failureRate?: number;
-  /** Force specific step to fail */
+  /** Force specific step to fail - mock mode only */
   forceFailStep?: string;
   /** Circuit breaker configuration */
   circuitBreaker?: Partial<CircuitBreakerConfig>;
+  /** Enable git snapshot/rollback - real mode only */
+  enableSnapshot?: boolean;
 }
 
 export interface ExecutionProgress {
@@ -55,22 +70,58 @@ export class ExecutionAgent {
   private options: ExecutionOptions;
   private circuitBreaker: CircuitBreakerConfig;
   private progressCallbacks: ProgressCallback[] = [];
+  private snapshotManager?: GitSnapshotManager;
+  private commandExecutor?: CommandExecutor;
 
   constructor(options: ExecutionOptions = {}) {
     this.options = {
+      mode: options.mode ?? 'mock',
+      workingDir: options.workingDir ?? process.cwd(),
       stepDelay: options.stepDelay ?? 500,
       failureRate: options.failureRate ?? 0,
       forceFailStep: options.forceFailStep,
+      enableSnapshot: options.enableSnapshot ?? true,
     };
     this.circuitBreaker = {
       ...DEFAULT_CIRCUIT_BREAKER,
       ...options.circuitBreaker,
     };
+
+    // Initialize real execution components if in real mode
+    if (this.options.mode === 'real') {
+      this.snapshotManager = new GitSnapshotManager(this.options.workingDir!);
+      this.commandExecutor = new CommandExecutor({
+        cwd: this.options.workingDir,
+        timeout: this.circuitBreaker.stepTimeout,
+      });
+    }
+  }
+
+  /**
+   * Set execution mode (for testing)
+   */
+  setMode(mode: ExecutionMode, workingDir?: string): void {
+    this.options.mode = mode;
+    if (workingDir) {
+      this.options.workingDir = workingDir;
+    }
+
+    if (mode === 'real') {
+      this.snapshotManager = new GitSnapshotManager(this.options.workingDir!);
+      this.commandExecutor = new CommandExecutor({
+        cwd: this.options.workingDir,
+        timeout: this.circuitBreaker.stepTimeout,
+      });
+    } else {
+      this.snapshotManager = undefined;
+      this.commandExecutor = undefined;
+    }
   }
 
   /**
    * Execute a plan and return results
    * Includes circuit breaker: stops after maxConsecutiveFailures
+   * In real mode: creates git snapshot before execution and rolls back on failure
    */
   async execute(plan: Plan, taskId: string): Promise<Result> {
     const startTime = Date.now();
@@ -78,59 +129,97 @@ export class ExecutionAgent {
     let overallStatus: Result['status'] = 'success';
     let consecutiveFailures = 0;
     let circuitBroken = false;
+    let snapshot: Snapshot | undefined;
 
-    for (let i = 0; i < plan.steps.length; i++) {
-      const step = plan.steps[i];
-      if (!step) continue;
+    const isRealMode = this.options.mode === 'real';
 
-      // Circuit breaker check
-      if (consecutiveFailures >= this.circuitBreaker.maxConsecutiveFailures) {
-        console.error(
-          `[ExecutionAgent] Circuit breaker triggered after ${consecutiveFailures} consecutive failures. ` +
-          `Skipping remaining ${plan.steps.length - i} steps.`
-        );
-        circuitBroken = true;
-        break;
-      }
-
-      // Notify progress
-      this.notifyProgress({
-        currentStep: i + 1,
-        totalSteps: plan.steps.length,
-        stepId: step.id,
-        status: 'running',
-      });
-
-      // Simulate execution delay
-      await this.delay(this.options.stepDelay || 500);
-
-      // Execute step with retry logic
-      const stepResult = await this.executeStepWithRetry(step);
-      stepResults.push(stepResult);
-
-      // Track consecutive failures for circuit breaker
-      if (stepResult.status === 'failure') {
-        consecutiveFailures++;
-        overallStatus = 'partial_success';
+    // Create snapshot in real mode
+    if (isRealMode && this.options.enableSnapshot && this.snapshotManager) {
+      console.log(`[ExecutionAgent] Real mode - creating git snapshot`);
+      const snapshotResult = await this.snapshotManager.createSnapshot(taskId);
+      if (snapshotResult.success) {
+        snapshot = snapshotResult.snapshot;
       } else {
-        consecutiveFailures = 0; // Reset on success
+        console.warn(`[ExecutionAgent] Could not create snapshot: ${snapshotResult.error}`);
       }
-
-      // Notify completion
-      this.notifyProgress({
-        currentStep: i + 1,
-        totalSteps: plan.steps.length,
-        stepId: step.id,
-        status: stepResult.status === 'success' ? 'completed' : 'failed',
-      });
     }
 
-    // Calculate final status
-    const failedSteps = stepResults.filter((s) => s.status === 'failure').length;
-    if (failedSteps === stepResults.length || circuitBroken) {
-      overallStatus = 'failure';
-    } else if (failedSteps > 0) {
-      overallStatus = 'partial_success';
+    try {
+      for (let i = 0; i < plan.steps.length; i++) {
+        const step = plan.steps[i];
+        if (!step) continue;
+
+        // Circuit breaker check
+        if (consecutiveFailures >= this.circuitBreaker.maxConsecutiveFailures) {
+          console.error(
+            `[ExecutionAgent] Circuit breaker triggered after ${consecutiveFailures} consecutive failures. ` +
+            `Skipping remaining ${plan.steps.length - i} steps.`
+          );
+          circuitBroken = true;
+          break;
+        }
+
+        // Notify progress
+        this.notifyProgress({
+          currentStep: i + 1,
+          totalSteps: plan.steps.length,
+          stepId: step.id,
+          status: 'running',
+        });
+
+        // Add delay in mock mode
+        if (!isRealMode) {
+          await this.delay(this.options.stepDelay || 500);
+        }
+
+        // Execute step with retry logic
+        const stepResult = await this.executeStepWithRetry(step);
+        stepResults.push(stepResult);
+
+        // Track consecutive failures for circuit breaker
+        if (stepResult.status === 'failure') {
+          consecutiveFailures++;
+          overallStatus = 'partial_success';
+        } else {
+          consecutiveFailures = 0; // Reset on success
+        }
+
+        // Notify completion
+        this.notifyProgress({
+          currentStep: i + 1,
+          totalSteps: plan.steps.length,
+          stepId: step.id,
+          status: stepResult.status === 'success' ? 'completed' : 'failed',
+        });
+      }
+
+      // Calculate final status
+      const failedSteps = stepResults.filter((s) => s.status === 'failure').length;
+      if (failedSteps === stepResults.length || circuitBroken) {
+        overallStatus = 'failure';
+      } else if (failedSteps > 0) {
+        overallStatus = 'partial_success';
+      }
+
+      // Handle snapshot cleanup
+      if (snapshot && this.snapshotManager) {
+        if (overallStatus === 'failure' || circuitBroken) {
+          // Rollback on failure
+          console.log(`[ExecutionAgent] Execution failed - rolling back to snapshot`);
+          await this.snapshotManager.rollback(snapshot.id);
+        } else {
+          // Discard snapshot on success
+          await this.snapshotManager.discardSnapshot(snapshot.id);
+        }
+      }
+
+    } catch (error) {
+      // Unexpected error - rollback if possible
+      if (snapshot && this.snapshotManager) {
+        console.log(`[ExecutionAgent] Unexpected error - rolling back`);
+        await this.snapshotManager.rollback(snapshot.id);
+      }
+      throw error;
     }
 
     const endTime = Date.now();
@@ -138,12 +227,25 @@ export class ExecutionAgent {
 
     const result = this.buildResult(plan, taskId, stepResults, overallStatus, duration);
 
-    // Add circuit breaker metadata if triggered
+    // Add execution metadata
+    result.metadata = {
+      ...result.metadata,
+      executionMode: this.options.mode,
+    };
+
     if (circuitBroken) {
       result.metadata = {
         ...result.metadata,
         circuitBroken: true,
         skippedSteps: plan.steps.length - stepResults.length,
+      };
+    }
+
+    if (snapshot) {
+      result.metadata = {
+        ...result.metadata,
+        snapshotId: snapshot.id,
+        rolledBack: overallStatus === 'failure' || circuitBroken,
       };
     }
 
@@ -239,9 +341,78 @@ export class ExecutionAgent {
   }
 
   /**
-   * Execute a single step (mock)
+   * Execute a single step
+   * In real mode: runs validation command
+   * In mock mode: simulates with optional failure rate
    */
   private async executeStep(step: PlanStep): Promise<StepResult> {
+    if (this.options.mode === 'real' && this.commandExecutor) {
+      return this.executeRealStep(step);
+    }
+    return this.executeMockStep(step);
+  }
+
+  /**
+   * Execute a step in real mode - runs the validation command
+   */
+  private async executeRealStep(step: PlanStep): Promise<StepResult> {
+    const startTime = Date.now();
+    const command = step.validation.command;
+
+    if (!command) {
+      // No validation command - assume success
+      return {
+        id: step.id,
+        status: 'success',
+        duration: 0,
+        validation: {
+          passed: true,
+          output: 'No validation command specified',
+        },
+        artifacts: step.outputs,
+      };
+    }
+
+    console.log(`[ExecutionAgent] Running: ${command}`);
+    const result = await this.commandExecutor!.execute(command);
+    const duration = Math.round((Date.now() - startTime) / 1000);
+
+    if (result.success) {
+      return {
+        id: step.id,
+        status: 'success',
+        duration,
+        validation: {
+          passed: true,
+          command,
+          output: result.stdout || `✓ ${step.validation.successCriteria}`,
+          exitCode: result.exitCode,
+        },
+        artifacts: step.outputs,
+      };
+    }
+
+    return {
+      id: step.id,
+      status: 'failure',
+      duration,
+      validation: {
+        passed: false,
+        command,
+        output: result.stderr || result.stdout || 'Command failed',
+        exitCode: result.exitCode,
+      },
+      error: {
+        message: result.timedOut ? 'Command timed out' : `Exit code ${result.exitCode}`,
+        recoverable: !result.timedOut,
+      },
+    };
+  }
+
+  /**
+   * Execute a step in mock mode (simulation)
+   */
+  private executeMockStep(step: PlanStep): StepResult {
     const shouldFail =
       this.options.forceFailStep === step.id ||
       Math.random() < (this.options.failureRate || 0);

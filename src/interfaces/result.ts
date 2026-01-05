@@ -62,6 +62,12 @@ export interface Result {
     circuitBroken?: boolean;
     /** Number of steps skipped due to circuit breaker */
     skippedSteps?: number;
+    /** Execution mode used */
+    executionMode?: 'mock' | 'real';
+    /** Git snapshot ID created before execution */
+    snapshotId?: string;
+    /** Whether execution was rolled back due to failure */
+    rolledBack?: boolean;
   };
 }
 
