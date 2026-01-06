@@ -28,7 +28,7 @@ export const TaskSchema = z.object({
   id: z.string().regex(/^task-[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}$/),
   version: z.string().regex(/^\d+\.\d+\.\d+$/),
   type: z.enum(['feature', 'bugfix', 'refactor', 'docs', 'test', 'infra']),
-  description: z.string().min(10).max(500),
+  description: z.string().min(10).max(2000),
   context: TaskContextSchema,
   constraints: TaskConstraintsSchema,
   metadata: TaskMetadataSchema,

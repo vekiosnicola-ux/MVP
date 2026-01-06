@@ -51,11 +51,18 @@ export function AgentChatDialog({ isOpen, onClose, onTaskCreated }: AgentChatDia
             const data = await response.json();
 
             if (data.task) {
+                // Extract title from description (format: "Title: X\n\nDescription")
+                const desc = data.task.description || '';
+                const titleMatch = desc.match(/^Title:\s*(.+?)(?:\n|$)/);
+                const title = titleMatch ? titleMatch[1] : desc.slice(0, 50);
+
                 setMessages(prev => [...prev, {
                     role: 'assistant',
-                    content: `I've created a new task set to "${data.task.title}". You can see it on the board.`
+                    content: `I've created a new task: "${title}". You can see it on the board.`
                 }]);
                 if (onTaskCreated) onTaskCreated();
+            } else if (data.error) {
+                setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${data.error}` }]);
             } else {
                 setMessages(prev => [...prev, { role: 'assistant', content: 'I am sorry, I could not understand that request.' }]);
             }

@@ -1,4 +1,5 @@
 
+import { xaiClient } from './xai-client';
 import { groqClient } from './groq-client';
 import { claudeClient } from './claude-client';
 import { Task, TaskType } from '@/interfaces/task';
@@ -25,11 +26,13 @@ interface MetaAgentResponse {
 
 export class MetaAgent {
     async processRequest(userMessage: string): Promise<Partial<Task>> {
+        // Priority: xAI (Grok) -> Groq -> Claude
+        const useXAI = xaiClient.isConfigured();
         const useGroq = groqClient.isConfigured();
 
         // Construct prompt
         const prompt = `User Request: "${userMessage}"
-    
+
     Extract the task details into JSON format:
     {
       "title": "string",
@@ -41,12 +44,20 @@ export class MetaAgent {
         let parsedResponse: MetaAgentResponse;
 
         try {
-            if (useGroq) {
+            if (useXAI) {
+                console.log('[MetaAgent] Using xAI (Grok)');
+                parsedResponse = await xaiClient.generateJSON<MetaAgentResponse>(prompt, {
+                    system: SYSTEM_PROMPT,
+                    temperature: 0.5
+                });
+            } else if (useGroq) {
+                console.log('[MetaAgent] Using Groq');
                 parsedResponse = await groqClient.generateJSON<MetaAgentResponse>(prompt, {
                     system: SYSTEM_PROMPT,
                     temperature: 0.5
                 });
             } else {
+                console.log('[MetaAgent] Using Claude');
                 parsedResponse = await claudeClient.generateJSON<MetaAgentResponse>(prompt, {
                     system: SYSTEM_PROMPT,
                     temperature: 0.5
@@ -64,7 +75,7 @@ export class MetaAgent {
                 type: (parsedResponse.type as TaskType) || 'feature',
                 context: {
                     // We will fill basics here, but PlanningAgent refines this
-                    repository: 'local',
+                    repository: 'dieta-positiva/app',
                     branch: 'main',
                     files: parsedResponse.suggestedFiles || [],
                     dependencies: []

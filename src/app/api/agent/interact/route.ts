@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
             description: taskDraft.description || 'New Task via Chat',
             type: taskType,
             context: taskDraft.context || {
-                repository: 'local',
+                repository: 'dieta-positiva/app',
                 branch: 'main',
                 files: [],
                 dependencies: []
