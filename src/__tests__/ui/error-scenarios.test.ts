@@ -26,8 +26,8 @@ test.describe('Error Scenarios', () => {
     expect(pageContent).toBeTruthy();
     
     // Either error is shown or page loads with content
-    const hasError = await page.locator('text=/error/i, text=/failed/i, text=/try again/i').isVisible({ timeout: 2000 }).catch(() => false);
-    const hasContent = await page.locator('h1, [class*="dashboard"], text=/Mission Control/i').isVisible({ timeout: 2000 }).catch(() => false);
+    const hasError = await page.locator('text=/error/i').or(page.locator('text=/failed/i')).or(page.locator('text=/try again/i')).isVisible({ timeout: 2000 }).catch(() => false);
+    const hasContent = await page.locator('h1').or(page.locator('[class*="dashboard"]')).or(page.locator('text=/Mission Control/i')).isVisible({ timeout: 2000 }).catch(() => false);
     
     expect(hasError || hasContent).toBe(true);
   });
@@ -49,7 +49,7 @@ test.describe('Error Scenarios', () => {
 
     // Should handle invalid response gracefully
     // Page should still load even with invalid API response
-    const hasContent = await page.locator('h1, [class*="dashboard"], body').isVisible({ timeout: 5000 }).catch(() => false);
+    const hasContent = await page.locator('h1').or(page.locator('[class*="dashboard"]')).or(page.locator('body')).isVisible({ timeout: 5000 }).catch(() => false);
     
     // At minimum, page should load
     expect(hasContent).toBe(true);
@@ -71,7 +71,7 @@ test.describe('Error Scenarios', () => {
 
     // Should show dashboard (even with empty task list)
     // Look for dashboard heading or stats showing 0
-    const dashboardContent = page.locator('h1, text=/Mission Control/i, text=/Total Tasks/i, [class*="stat"]');
+    const dashboardContent = page.locator('h1').or(page.locator('text=/Mission Control/i')).or(page.locator('text=/Total Tasks/i')).or(page.locator('[class*="stat"]'));
     await expect(dashboardContent.first()).toBeVisible({ timeout: 10000 });
   });
 

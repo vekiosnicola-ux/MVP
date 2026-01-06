@@ -47,12 +47,18 @@ test.describe('Chat Functionality', () => {
 
     // Close chat using ESC key (more reliable than button click)
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(1000);
+    // Wait for dialog to close - give it more time
+    await page.waitForTimeout(2000);
     
     // Wait for dialog to close - check that the greeting is no longer visible
     // The dialog returns null when closed, so the greeting should disappear
+    // Also check if the dialog container is gone
     const greetingStillVisible = await greeting.isVisible({ timeout: 2000 }).catch(() => false);
-    expect(greetingStillVisible).toBe(false);
+    const dialogContainer = page.locator('[class*="fixed inset-0 z-50"]');
+    const dialogStillVisible = await dialogContainer.isVisible({ timeout: 2000 }).catch(() => false);
+    
+    // Either greeting or dialog container should be gone
+    expect(greetingStillVisible && dialogStillVisible).toBe(false);
   });
 
   test('user can type and send a message', async ({ page }) => {

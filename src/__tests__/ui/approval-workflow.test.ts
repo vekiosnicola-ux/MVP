@@ -41,7 +41,7 @@ test.describe('Approval Workflow', () => {
     await page.waitForLoadState('networkidle');
 
     // Step 3: Verify approval page loads
-    const approvalContent = page.locator('h1, [class*="approval"], text=/Approval Queue/i');
+    const approvalContent = page.locator('h1').or(page.locator('[class*="approval"]')).or(page.locator('text=/Approval Queue/i'));
     await expect(approvalContent.first()).toBeVisible({ timeout: 10000 });
 
     // Step 4: Check if there are tasks awaiting approval
