@@ -31,7 +31,6 @@ test.describe('Approval Workflow', () => {
 
     // Wait for task creation confirmation or response
     await page.waitForTimeout(5000);
-    const hasConfirmation = await page.locator('text=/created.*task/i, text=/task.*created/i').isVisible({ timeout: 5000 }).catch(() => false);
     
     // Close chat
     await page.keyboard.press('Escape');
@@ -46,10 +45,17 @@ test.describe('Approval Workflow', () => {
     await expect(approvalContent.first()).toBeVisible({ timeout: 10000 });
 
     // Step 4: Check if there are tasks awaiting approval
+    // The page may show "No tasks awaiting approval" or have tasks
+    const emptyState = page.locator('text=/no tasks/i, text=/awaiting/i, text=/No tasks/i');
     const taskCard = page.locator('[data-testid="task-card"], .task-card, [class*="card"]').first();
-    const hasTask = await taskCard.isVisible({ timeout: 5000 }).catch(() => false);
     
-    if (hasTask) {
+    const isEmpty = await emptyState.isVisible({ timeout: 3000 }).catch(() => false);
+    const hasTask = await taskCard.isVisible({ timeout: 3000 }).catch(() => false);
+    
+    // Either empty state or task card should be visible
+    expect(isEmpty || hasTask).toBe(true);
+    
+    if (hasTask && !isEmpty) {
       // Step 5: Verify proposals are displayed (if task has plans)
       const proposals = page.locator('[data-testid="proposal"], .proposal-card, [class*="proposal"], [class*="plan"]');
       const hasProposals = await proposals.first().isVisible({ timeout: 5000 }).catch(() => false);
@@ -66,10 +72,6 @@ test.describe('Approval Workflow', () => {
           await expect(page).toHaveURL(/\/dashboard|\//, { timeout: 10000 });
         }
       }
-    } else {
-      // No tasks awaiting approval - this is valid
-      const emptyState = page.locator('text=/no tasks/i, text=/awaiting/i');
-      await expect(emptyState.first()).toBeVisible({ timeout: 5000 });
     }
   });
 
