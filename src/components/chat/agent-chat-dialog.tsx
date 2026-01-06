@@ -50,8 +50,14 @@ export function AgentChatDialog({ isOpen, onClose, onTaskCreated }: AgentChatDia
 
             const data = await response.json();
 
-            if (data.task) {
-                // Extract title from description (format: "Title: X\n\nDescription")
+            if (data.conversation) {
+                // Conversational response
+                setMessages(prev => [...prev, {
+                    role: 'assistant',
+                    content: data.conversation
+                }]);
+            } else if (data.task) {
+                // Task was created - extract title from description
                 const desc = data.task.description || '';
                 const titleMatch = desc.match(/^Title:\s*(.+?)(?:\n|$)/);
                 const title = titleMatch ? titleMatch[1] : desc.slice(0, 50);
@@ -78,10 +84,10 @@ export function AgentChatDialog({ isOpen, onClose, onTaskCreated }: AgentChatDia
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <Card className="w-full max-w-md h-[600px] flex flex-col shadow-2xl border-accent-primary/20 bg-background/95 backdrop-blur-xl overflow-hidden relative">
+            <Card className="w-full max-w-md h-[600px] flex flex-col shadow-2xl border-accent-primary/20 bg-bg-primary backdrop-blur-xl overflow-hidden relative">
 
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-border bg-card/50">
+                <div className="flex items-center justify-between p-4 border-b border-border-primary bg-bg-secondary">
                     <div className="flex items-center gap-2 text-accent-primary">
                         <Sparkles className="w-5 h-5" />
                         <h2 className="font-semibold">Talk to Aura</h2>
@@ -110,7 +116,7 @@ export function AgentChatDialog({ isOpen, onClose, onTaskCreated }: AgentChatDia
                             <div
                                 className={`rounded-2xl px-4 py-2 max-w-[80%] text-sm shadow-sm ${msg.role === 'user'
                                     ? 'bg-accent-primary text-white'
-                                    : 'bg-muted text-text-primary border border-border'
+                                    : 'bg-bg-tertiary text-text-primary border border-border-primary'
                                     }`}
                             >
                                 {msg.content}
@@ -122,7 +128,7 @@ export function AgentChatDialog({ isOpen, onClose, onTaskCreated }: AgentChatDia
                             <div className="w-8 h-8 rounded-full bg-accent-secondary/20 flex items-center justify-center shrink-0">
                                 <Bot className="w-4 h-4 animate-pulse" />
                             </div>
-                            <div className="bg-muted rounded-2xl px-4 py-2 text-sm text-text-secondary italic">
+                            <div className="bg-bg-tertiary rounded-2xl px-4 py-2 text-sm text-text-secondary italic">
                                 Thinking...
                             </div>
                         </div>
@@ -131,13 +137,13 @@ export function AgentChatDialog({ isOpen, onClose, onTaskCreated }: AgentChatDia
                 </div>
 
                 {/* Input Area */}
-                <form onSubmit={handleSubmit} className="p-4 border-t border-border bg-card/50">
+                <form onSubmit={handleSubmit} className="p-4 border-t border-border-primary bg-bg-secondary">
                     <div className="flex gap-2">
                         <Input
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             placeholder="Describe a new task..."
-                            className="flex-1 bg-background/50 focus-visible:ring-accent-primary"
+                            className="flex-1 bg-bg-tertiary text-text-primary focus-visible:ring-accent-primary"
                             disabled={loading}
                             autoFocus
                         />

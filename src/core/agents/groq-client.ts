@@ -131,6 +131,17 @@ class GroqClient {
   }
 
   /**
+   * Generate plain text response from Groq
+   */
+  async generateText(
+    prompt: string,
+    options: GroqOptions = {}
+  ): Promise<string> {
+    const response = await this.prompt(prompt, options);
+    return response.content;
+  }
+
+  /**
    * Generate structured JSON output from Groq
    */
   async generateJSON<T>(

@@ -134,6 +134,17 @@ class XAIClient {
   }
 
   /**
+   * Generate plain text response from xAI
+   */
+  async generateText(
+    prompt: string,
+    options: XAIOptions = {}
+  ): Promise<string> {
+    const response = await this.prompt(prompt, options);
+    return response.content;
+  }
+
+  /**
    * Generate structured JSON output from xAI
    */
   async generateJSON<T>(

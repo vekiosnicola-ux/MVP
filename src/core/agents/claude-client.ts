@@ -127,6 +127,17 @@ class ClaudeClient {
   }
 
   /**
+   * Generate plain text response from Claude
+   */
+  async generateText(
+    prompt: string,
+    options: ClaudeOptions = {}
+  ): Promise<string> {
+    const response = await this.prompt(prompt, options);
+    return response.content;
+  }
+
+  /**
    * Generate structured JSON output from Claude
    */
   async generateJSON<T>(

@@ -12,14 +12,21 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Message is required' }, { status: 400 });
         }
 
-        // 1. Interpret user intent
-        const taskDraft = await metaAgent.processRequest(message);
+        // 1. Process user message (may be conversation or task request)
+        const result = await metaAgent.processRequest(message);
 
-        // 2. Create the task in the database
-        // Ensure defaults for required fields
+        // 2. Handle based on result type
+        if (result.type === 'conversation') {
+            // Return conversational response
+            return NextResponse.json({
+                success: true,
+                conversation: result.message
+            });
+        }
+
+        // It's a task - create it in the database
+        const taskDraft = result.task;
         const taskType = (taskDraft.type as TaskType) || 'feature';
-
-        // Generate ID and Version manually
         const taskId = `task-${crypto.randomUUID()}`;
 
         const newTask = await createTask({
@@ -47,8 +54,7 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            task: newTask,
-            message: 'I have created a new task based on your request. You can now process it.'
+            task: newTask
         });
 
     } catch (error) {
