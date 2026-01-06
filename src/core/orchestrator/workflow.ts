@@ -85,6 +85,14 @@ export class WorkflowEngine {
 
     const { planningAgent } = await import('@/core/agents/planning-agent');
 
+    // Enable mock fallback if no AI is configured (for development/testing)
+    const { groqClient } = await import('@/core/agents/groq-client');
+    const { claudeClient } = await import('@/core/agents/claude-client');
+    if (!groqClient.isConfigured() && !claudeClient.isConfigured()) {
+      planningAgent.setMockFallback(true);
+      console.log('[WorkflowEngine] No AI configured, enabling mock fallback for planning');
+    }
+
     // Transform TaskRow to Task interface
     const task: Task = {
       id: taskRow.task_id,
@@ -171,7 +179,9 @@ export class WorkflowEngine {
     if (isApproval) {
       result = await this.executeTransition(currentState, 'APPROVE', context);
       if (result.success) {
-        await updateTaskStatus(decision.taskId, 'approved');
+        // Use workflowStateToTaskStatus to ensure correct mapping
+        const newStatus = workflowStateToTaskStatus(result.newState);
+        await updateTaskStatus(decision.taskId, newStatus);
         if (decision.planId) {
           await updatePlanStatus(decision.planId, 'approved');
         }
@@ -179,7 +189,9 @@ export class WorkflowEngine {
     } else {
       result = await this.executeTransition(currentState, 'REJECT', context);
       if (result.success) {
-        await updateTaskStatus(decision.taskId, 'rejected');
+        // Use workflowStateToTaskStatus to ensure correct mapping
+        const newStatus = workflowStateToTaskStatus(result.newState);
+        await updateTaskStatus(decision.taskId, newStatus);
         if (decision.planId) {
           await updatePlanStatus(decision.planId, 'rejected');
         }
@@ -303,10 +315,11 @@ export class WorkflowEngine {
       console.warn(formatValidationResult(validation));
     }
 
-    // Execute the plan
+    // Execute the plan (ensure mock mode for development)
+    // Execution agent defaults to 'mock' mode, which is safe for development
     const executionResult = await executionAgent.execute(plan, taskId);
 
-    // Record the result
+    // Record the result (automatically transitions to awaiting_verification)
     return this.recordResult(executionResult);
   }
 

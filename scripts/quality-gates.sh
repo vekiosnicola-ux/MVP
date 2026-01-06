@@ -3,8 +3,6 @@
 # Quality Gates Script
 # Runs all quality checks before deployment
 
-set -e  # Exit on error
-
 echo "🚀 Running Quality Gates..."
 
 # Colors for output
@@ -17,40 +15,36 @@ NC='\033[0m' # No Color
 FAILURES=0
 
 # Function to check and report
-check() {
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}✅ $1${NC}"
+# Usage: run_check "description" command [args...]
+run_check() {
+    local description="$1"
+    shift
+    
+    echo ""
+    echo "📝 $description..."
+    if "$@"; then
+        echo -e "${GREEN}✅ $description${NC}"
     else
-        echo -e "${RED}❌ $1${NC}"
+        echo -e "${RED}❌ $description${NC}"
         FAILURES=$((FAILURES + 1))
     fi
 }
 
 # 1. Type Check
-echo ""
-echo "📝 Running TypeScript type check..."
-npm run type-check
-check "Type check"
+run_check "Type Check" npm run type-check
 
 # 2. Lint
-echo ""
-echo "🔍 Running ESLint..."
-npm run lint
-check "Lint"
+run_check "Lint" npm run lint
 
 # 3. Unit Tests
-echo ""
-echo "🧪 Running unit tests..."
-npm run test
-check "Unit tests"
+run_check "Unit Tests" npm run test
 
 # 4. Test Coverage
-echo ""
-echo "📊 Checking test coverage..."
-npm run test:coverage
-check "Test coverage"
+run_check "Test Coverage" npm run test:coverage
 
 # Check coverage threshold (70%)
+echo ""
+echo "📊 Checking coverage threshold..."
 COVERAGE=$(npm run test:coverage 2>&1 | grep -oP 'All files\s+\|\s+\d+\.\d+' | awk '{print $3}' | head -1)
 if [ ! -z "$COVERAGE" ]; then
     COVERAGE_INT=$(echo $COVERAGE | cut -d. -f1)
@@ -60,13 +54,13 @@ if [ ! -z "$COVERAGE" ]; then
     else
         echo -e "${GREEN}✅ Coverage: ${COVERAGE}%${NC}"
     fi
+else
+    echo -e "${YELLOW}⚠️  Could not determine coverage percentage${NC}"
+    FAILURES=$((FAILURES + 1))
 fi
 
 # 5. Build Check
-echo ""
-echo "🏗️  Building application..."
-npm run build
-check "Build"
+run_check "Build" npm run build
 
 # Summary
 echo ""

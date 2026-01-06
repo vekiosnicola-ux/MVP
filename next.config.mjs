@@ -5,8 +5,8 @@ const nextConfig = {
   // Enable React strict mode for better development experience
   reactStrictMode: true,
 
-  // Output standalone for Docker deployment
-  output: 'standalone',
+  // Output standalone for Docker deployment (production only)
+  ...(process.env.NODE_ENV === 'production' && { output: 'standalone' }),
 
   // Enable instrumentation hook for Sentry
   experimental: {
