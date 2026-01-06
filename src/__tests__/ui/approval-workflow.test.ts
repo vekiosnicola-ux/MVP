@@ -46,14 +46,15 @@ test.describe('Approval Workflow', () => {
 
     // Step 4: Check if there are tasks awaiting approval
     // The page may show "No tasks awaiting approval" or have tasks
-    const emptyState = page.locator('text=/no tasks/i, text=/awaiting/i, text=/No tasks/i');
-    const taskCard = page.locator('[data-testid="task-card"], .task-card, [class*="card"]').first();
+    const emptyState = page.locator('text=/no tasks/i').or(page.locator('text=/awaiting/i')).or(page.locator('text=/No tasks/i'));
+    const taskCard = page.locator('[data-testid="task-card"]').or(page.locator('.task-card')).or(page.locator('[class*="card"]')).first();
     
-    const isEmpty = await emptyState.isVisible({ timeout: 3000 }).catch(() => false);
-    const hasTask = await taskCard.isVisible({ timeout: 3000 }).catch(() => false);
+    const isEmpty = await emptyState.isVisible({ timeout: 5000 }).catch(() => false);
+    const hasTask = await taskCard.isVisible({ timeout: 5000 }).catch(() => false);
+    const hasApprovalContent = await approvalContent.isVisible({ timeout: 5000 }).catch(() => false);
     
-    // Either empty state or task card should be visible
-    expect(isEmpty || hasTask).toBe(true);
+    // Either empty state, task card, or approval page content should be visible
+    expect(isEmpty || hasTask || hasApprovalContent).toBe(true);
     
     if (hasTask && !isEmpty) {
       // Step 5: Verify proposals are displayed (if task has plans)

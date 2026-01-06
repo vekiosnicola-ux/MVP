@@ -32,6 +32,20 @@ export function AgentChatDialog({ isOpen, onClose, onTaskCreated }: AgentChatDia
     };
     React.useEffect(scrollToBottom, [messages]);
 
+    // Handle Escape key to close dialog
+    React.useEffect(() => {
+        if (!isOpen) return;
+
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                onClose();
+            }
+        };
+
+        document.addEventListener('keydown', handleEscape);
+        return () => document.removeEventListener('keydown', handleEscape);
+    }, [isOpen, onClose]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!input.trim() || loading) return;
