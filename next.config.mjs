@@ -1,3 +1,5 @@
+import { withSentryConfig } from '@sentry/nextjs';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Enable React strict mode for better development experience
@@ -5,6 +7,11 @@ const nextConfig = {
 
   // Output standalone for Docker deployment
   output: 'standalone',
+
+  // Enable instrumentation hook for Sentry
+  experimental: {
+    instrumentationHook: true,
+  },
 
   // Security headers
   async headers() {
@@ -40,7 +47,15 @@ const nextConfig = {
       },
     ];
   },
-
 };
 
-export default nextConfig;
+// Wrap with Sentry config
+export default withSentryConfig(nextConfig, {
+  // Sentry configuration
+  silent: true,
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  
+  // For all available options, see:
+  // https://github.com/getsentry/sentry-webpack-plugin#options
+});

@@ -94,6 +94,9 @@ By default, the agent runs in `EXECUTION_MODE="mock"`.
 - **[CLAUDE.md](./CLAUDE.md)** — How Claude Code works on this project
 - **[DECISIONS.md](./DECISIONS.md)** — Why we made key technical choices
 - **[docs/architecture.md](./docs/architecture.md)** — Detailed system architecture
+- **[docs/TESTING_ITERATION_PLAN.md](./docs/TESTING_ITERATION_PLAN.md)** — Comprehensive testing and iteration strategy
+- **[docs/TESTING.md](./docs/TESTING.md)** — Testing strategy and guidelines
+- **[docs/TESTING_QUICK_REFERENCE.md](./docs/TESTING_QUICK_REFERENCE.md)** — Quick reference for daily testing work
 
 ## Building Dieta Positiva
 

@@ -1,7 +1,10 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "experimental": {
+    "chatToolsAutoApprove": true
+  },
   "permissions": {
-    "allow": ["Skill", "Task"]
+    "allow": ["Task"]
   },
   "subagents": {
     "default_instructions": "You are part of the Dieta Positiva multi-agent development system (System 3). Always reference CLAUDE.md in the project root for philosophy and standards. Follow the principles: Invisible Technology, Boring Tech Over Novelty, Minimal and Pragmatic, Speed with Fast Feedback. Use todo lists for multi-step tasks. Complete tasks fully before reporting done."

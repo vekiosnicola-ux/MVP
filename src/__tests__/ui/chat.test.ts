@@ -40,16 +40,12 @@ test.describe('Chat Functionality', () => {
     await page.click('button:has-text("Talk to Aura")');
     await expect(page.locator('text=/Hello! I am Aura/i')).toBeVisible({ timeout: 5000 });
 
-    // Close chat - look for X button in the header
-    const closeButton = page.locator('button:has([class*="X"]), button:has(svg)').first();
-    // Or use ESC key which is more reliable
+    // Close chat using ESC key (more reliable than button click)
     await page.keyboard.press('Escape');
     
-    // Wait a bit for dialog to close
-    await page.waitForTimeout(500);
-
-    // Chat should be closed (greeting not visible)
-    await expect(page.locator('text=/Hello! I am Aura/i')).not.toBeVisible({ timeout: 2000 });
+    // Wait for dialog to close - check that the dialog container is gone
+    // The dialog returns null when closed, so we check for the dialog container
+    await expect(page.locator('[class*="fixed inset-0 z-50"]')).not.toBeVisible({ timeout: 2000 });
   });
 
   test('user can type and send a message', async ({ page }) => {
