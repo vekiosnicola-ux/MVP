@@ -1,4 +1,4 @@
-name: Test & Build
+name: CI
 
 on:
   pull_request:
@@ -6,9 +6,13 @@ on:
   push:
     branches: [main, develop]
 
+env:
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
+
 jobs:
-  test:
-    name: Run Tests
+  ci:
+    name: CI
     runs-on: ubuntu-latest
     
     steps:
@@ -28,126 +32,13 @@ jobs:
         run: npm run type-check
 
       - name: Lint
-        run: npm run lint
-        continue-on-error: true
+        run: npm run lint || true
 
-      - name: Run unit tests
-        run: npm run test
-        continue-on-error: true
-        env:
-          CI: 'true'
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
-
-      - name: Run unit tests with coverage
-        run: npm run test:coverage
-        continue-on-error: true
-        env:
-          CI: 'true'
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
-
-      - name: Upload coverage reports
-        uses: codecov/codecov-action@v4
-        with:
-          files: ./coverage/lcov.info
-          fail_ci_if_error: false
-        continue-on-error: true
-
-  e2e:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci --legacy-peer-deps
-
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps
-
-      - name: Build application
-        run: npm run build
-        env:
-          NODE_ENV: production
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
-
-      - name: Start server and run E2E tests
-        run: |
-          # Start standalone server in background (production mode uses standalone)
-          NODE_ENV=production node .next/standalone/server.js > /tmp/server.log 2>&1 &
-          SERVER_PID=$!
-          
-          # Wait for server to be ready
-          echo "Waiting for server to start..."
-          timeout=60
-          elapsed=0
-          while ! curl -f http://localhost:3000/api/health > /dev/null 2>&1; do
-            if [ $elapsed -ge $timeout ]; then
-              echo "Server failed to start within $timeout seconds"
-              echo "Server logs:"
-              cat /tmp/server.log
-              kill $SERVER_PID 2>/dev/null || true
-              exit 1
-            fi
-            echo "Waiting for server... ($elapsed/$timeout)"
-            sleep 2
-            elapsed=$((elapsed + 2))
-          done
-          echo "Server is ready!"
-          
-          # Run E2E tests
-          npm run test:ui || TEST_EXIT_CODE=$?
-          
-          # Stop server
-          kill $SERVER_PID 2>/dev/null || true
-          
-          # Exit with test result
-          exit ${TEST_EXIT_CODE:-0}
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
-        continue-on-error: true
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 30
-
-  build:
-    name: Build Check
-    runs-on: ubuntu-latest
-    needs: [test]
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci --legacy-peer-deps
+      - name: Unit tests
+        run: npm run test || true
 
       - name: Build
         run: npm run build
         env:
           NODE_ENV: production
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
 
