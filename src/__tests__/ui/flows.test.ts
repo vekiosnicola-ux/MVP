@@ -98,8 +98,6 @@ test.describe('Aura UI Flows', () => {
       
       // Check for key elements in the trace
       const hasDescription = await page.locator('text=/description|task/i').count();
-      const hasPlans = await page.locator('text=/plan|proposal|approach/i').count();
-      const hasStatus = await page.locator('[data-testid="task-status"], .status').count();
       
       // At minimum, should see task description
       expect(hasDescription).toBeGreaterThan(0);
@@ -125,7 +123,9 @@ test.describe('Aura UI Flows', () => {
     
     // Check that history timeline or events are visible
     const historyElements = page.locator('[data-testid="history"], .timeline, [class*="history"]');
-    const count = await historyElements.count();
+    await historyElements.first().waitFor({ timeout: 5000 }).catch(() => {
+      // History may be empty, that's OK
+    });
     
     // History page should load (may be empty)
     await expect(page).toHaveURL(/\/history/);

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Analytics } from '@vercel/analytics/react';
 
 import './globals.css';
 import { MobileNav } from '@/components/layout/mobile-nav';
@@ -28,6 +29,7 @@ export default function RootLayout({
           </div>
           <MobileNav />
         </div>
+        <Analytics />
       </body>
     </html>
   );

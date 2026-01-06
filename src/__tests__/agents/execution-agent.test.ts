@@ -135,9 +135,11 @@ describe('ExecutionAgent', () => {
     const result = await executionAgent.execute(samplePlan, sampleTask.id);
     
     expect(result.metadata).toBeDefined();
-    expect(result.metadata.executionMode).toBe('mock');
-    expect(result.metadata.startedAt).toBeDefined();
-    expect(result.metadata.completedAt).toBeDefined();
+    if (result.metadata) {
+      expect(result.metadata.executionMode).toBe('mock');
+      expect(result.metadata.startedAt).toBeDefined();
+      expect(result.metadata.completedAt).toBeDefined();
+    }
   });
 });
 

@@ -1,7 +1,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { metaAgent } from '@/core/agents/meta-agent';
-import { createTask } from '@/core/db/tasks';
+import { workflowEngine } from '@/core/orchestrator/workflow';
 import { TaskType } from '@/interfaces/task';
 
 export async function POST(req: NextRequest) {
@@ -24,12 +24,12 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        // It's a task - create it in the database
+        // It's a task - create it through the workflow engine
         const taskDraft = result.task;
         const taskType = (taskDraft.type as TaskType) || 'feature';
         const taskId = `task-${crypto.randomUUID()}`;
 
-        const newTask = await createTask({
+        const task = {
             id: taskId,
             version: '1.0.0',
             description: taskDraft.description || 'New Task via Chat',
@@ -50,7 +50,22 @@ export async function POST(req: NextRequest) {
                 createdBy: 'meta-agent',
             },
             intentStatement: message
-        });
+        };
+
+        // Create task through workflow engine (handles state transitions)
+        const { taskId: createdTaskId, transition } = await workflowEngine.createTaskWorkflow(task);
+
+        // Process the task to generate proposals (moves to awaiting_human_decision)
+        try {
+            await workflowEngine.processTask(createdTaskId);
+        } catch (processError) {
+            console.error('[API] Failed to process task after creation:', processError);
+            // Task was created, but processing failed - still return success
+        }
+
+        // Fetch the latest task state
+        const { getTask } = await import('@/core/db/tasks');
+        const newTask = await getTask(createdTaskId);
 
         return NextResponse.json({
             success: true,

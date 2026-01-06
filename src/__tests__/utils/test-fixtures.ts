@@ -15,7 +15,7 @@ export function createTestTask(overrides?: Partial<Task>): Task {
     type: 'feature',
     description: 'Test task description',
     context: {
-      repository: 'test-repo',
+      repository: 'owner/repo', // Must match format: owner/repo
       branch: 'main',
       files: [],
       dependencies: [],
@@ -104,11 +104,105 @@ export function createMissingContextTask(): Task {
   return createTestTask({
     description: 'Add feature X',
     context: {
-      repository: 'unknown-repo',
+      repository: 'unknown/repo', // Must match format: owner/repo
       branch: 'main',
       files: [],
       dependencies: [],
     },
   });
+}
+
+/**
+ * Create a test Supabase client for testing
+ * Uses test environment variables if available, falls back to existing database
+ */
+export function getTestSupabaseClient() {
+  const { createClient } = require('@supabase/supabase-js');
+  
+  // Prefer test database, but use existing if test DB not configured
+  const testUrl = process.env.TEST_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const testKey = process.env.TEST_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  
+  if (!testUrl || !testKey) {
+    throw new Error(
+      'Supabase credentials not configured. ' +
+      'Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local, ' +
+      'or TEST_SUPABASE_URL and TEST_SUPABASE_ANON_KEY for separate test database.'
+    );
+  }
+  
+  return createClient(testUrl, testKey);
+}
+
+/**
+ * Clean up test data from database
+ * 
+ * Removes all records with IDs starting with test prefix.
+ * Safe to use with existing database - only removes test data.
+ */
+export async function cleanupTestData(supabase: any, table: string, testIdPrefix: string = 'test-') {
+  try {
+    // Delete records where ID starts with test prefix
+    const { error } = await supabase
+      .from(table)
+      .delete()
+      .like('id', `${testIdPrefix}%`);
+    
+    if (error) {
+      console.warn(`Failed to cleanup ${table}:`, error);
+      // Don't throw - allow tests to continue even if cleanup fails
+    }
+  } catch (error) {
+    console.warn(`Error during cleanup of ${table}:`, error);
+    // Don't throw - cleanup failures shouldn't break tests
+  }
+}
+
+/**
+ * Clean up all test data from all tables
+ * Useful for afterEach hooks
+ */
+export async function cleanupAllTestData(supabase: any) {
+  const tables = ['tasks', 'plans', 'decisions', 'results', 'human_overrides'];
+  
+  for (const table of tables) {
+    await cleanupTestData(supabase, table, 'test-');
+  }
+}
+
+/**
+ * Wait for async operation with timeout
+ */
+export function waitFor(condition: () => boolean | Promise<boolean>, timeout = 5000): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const startTime = Date.now();
+    const check = async () => {
+      if (await condition()) {
+        resolve();
+      } else if (Date.now() - startTime > timeout) {
+        reject(new Error(`Timeout waiting for condition after ${timeout}ms`));
+      } else {
+        setTimeout(check, 100);
+      }
+    };
+    check();
+  });
+}
+
+/**
+ * Mock fetch for API testing
+ */
+export function createMockFetch(responses: Record<string, any>) {
+  return async (url: string, options?: RequestInit) => {
+    const key = `${options?.method || 'GET'} ${url}`;
+    const response = responses[key] || responses[url] || { status: 404, body: { error: 'Not found' } };
+    
+    return {
+      ok: response.status >= 200 && response.status < 300,
+      status: response.status || 200,
+      json: async () => response.body || {},
+      text: async () => JSON.stringify(response.body || {}),
+    } as Response;
+  };
 }
 

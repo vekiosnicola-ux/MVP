@@ -95,10 +95,7 @@ describe('Mock-World Simulation', () => {
       const plans = await planningAgent.generatePlans(task);
       expect(plans.length).toBeGreaterThan(0);
       
-      // Plans should have high-risk indicators
-      const hasHighRisk = plans.some(plan => 
-        plan.risks.some(risk => risk.severity === 'high' || risk.severity === 'critical')
-      );
+      // Plans should have risk structure
       // In mock mode, this may not always be true, but structure should be valid
       expect(plans[0]?.risks).toBeDefined();
     });

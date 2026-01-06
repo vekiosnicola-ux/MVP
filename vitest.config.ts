@@ -12,5 +12,28 @@ export default defineConfig({
         alias: {
             '@': path.resolve(__dirname, './src'),
         },
+        coverage: {
+            provider: 'v8',
+            reporter: ['text', 'json', 'html', 'lcov'],
+            exclude: [
+                'node_modules/',
+                'src/__tests__/',
+                '**/*.test.ts',
+                '**/*.test.tsx',
+                '**/*.spec.ts',
+                '**/*.spec.tsx',
+                '**/mock-data.ts',
+                'next.config.mjs',
+                'tailwind.config.ts',
+                'playwright.config.ts',
+                'vitest.config.ts',
+            ],
+            thresholds: {
+                lines: 70,
+                functions: 70,
+                branches: 70,
+                statements: 70,
+            },
+        },
     },
 });
