@@ -37,10 +37,10 @@ export default function Error({
               )}
             </div>
             <div className="flex gap-2">
-              <Button onClick={reset} variant="default">
+              <Button onClick={reset} variant="primary">
                 Try again
               </Button>
-              <Button onClick={() => window.location.href = '/'} variant="outline">
+              <Button onClick={() => window.location.href = '/'} variant="secondary">
                 Go home
               </Button>
             </div>
