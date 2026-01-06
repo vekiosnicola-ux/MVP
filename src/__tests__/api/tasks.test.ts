@@ -5,10 +5,13 @@ import { createTestTask } from '../utils/test-fixtures';
  * Integration tests for /api/tasks endpoints
  * 
  * Note: These tests require a running Next.js server and test database.
- * Run with: npm run test:api (to be created)
+ * They are skipped in CI environments where no server is available.
+ * Run locally with: npm run dev (in one terminal) && npm run test (in another)
  */
 
-describe('Tasks API', () => {
+const shouldSkip = process.env.CI === 'true' || !process.env.TEST_API_URL;
+
+describe.skipIf(shouldSkip)('Tasks API', () => {
   const baseUrl = process.env.TEST_API_URL || 'http://localhost:3000';
 
   describe('POST /api/tasks', () => {

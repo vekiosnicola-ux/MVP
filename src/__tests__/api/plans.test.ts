@@ -3,9 +3,14 @@ import { createTestPlan, createTestTask } from '../utils/test-fixtures';
 
 /**
  * Integration tests for /api/plans endpoints
+ * 
+ * Note: These tests require a running Next.js server and test database.
+ * They are skipped in CI environments where no server is available.
  */
 
-describe('Plans API', () => {
+const shouldSkip = process.env.CI === 'true' || !process.env.TEST_API_URL;
+
+describe.skipIf(shouldSkip)('Plans API', () => {
   const baseUrl = process.env.TEST_API_URL || 'http://localhost:3000';
 
   describe('POST /api/plans', () => {

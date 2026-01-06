@@ -32,10 +32,18 @@ jobs:
 
       - name: Run unit tests
         run: npm run test
+        env:
+          CI: 'true'
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
 
       - name: Run unit tests with coverage
         run: npm run test:coverage
         continue-on-error: true
+        env:
+          CI: 'true'
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v3
@@ -70,8 +78,41 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
 
-      - name: Run E2E tests
-        run: npm run test:ui
+      - name: Start server and run E2E tests
+        run: |
+          # Start server in background
+          npm run start > /tmp/server.log 2>&1 &
+          SERVER_PID=$!
+          
+          # Wait for server to be ready
+          echo "Waiting for server to start..."
+          timeout=60
+          elapsed=0
+          while ! curl -f http://localhost:3000/api/health > /dev/null 2>&1; do
+            if [ $elapsed -ge $timeout ]; then
+              echo "Server failed to start within $timeout seconds"
+              echo "Server logs:"
+              cat /tmp/server.log
+              kill $SERVER_PID 2>/dev/null || true
+              exit 1
+            fi
+            echo "Waiting for server... ($elapsed/$timeout)"
+            sleep 2
+            elapsed=$((elapsed + 2))
+          done
+          echo "Server is ready!"
+          
+          # Run E2E tests
+          npm run test:ui || TEST_EXIT_CODE=$?
+          
+          # Stop server
+          kill $SERVER_PID 2>/dev/null || true
+          
+          # Exit with test result
+          exit ${TEST_EXIT_CODE:-0}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
         continue-on-error: true
 
       - name: Upload test results

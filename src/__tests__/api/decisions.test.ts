@@ -3,9 +3,14 @@ import { createTestDecision, createTestTask, createTestPlan } from '../utils/tes
 
 /**
  * Integration tests for /api/decisions endpoints
+ * 
+ * Note: These tests require a running Next.js server and test database.
+ * They are skipped in CI environments where no server is available.
  */
 
-describe('Decisions API', () => {
+const shouldSkip = process.env.CI === 'true' || !process.env.TEST_API_URL;
+
+describe.skipIf(shouldSkip)('Decisions API', () => {
   const baseUrl = process.env.TEST_API_URL || 'http://localhost:3000';
 
   describe('POST /api/decisions', () => {

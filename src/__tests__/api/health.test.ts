@@ -3,9 +3,14 @@ import { describe, it, expect } from 'vitest';
 /**
  * Health check API tests
  * These are simple and should always pass if server is running
+ * 
+ * Note: These are integration tests that require a running Next.js server.
+ * They are skipped in CI environments where no server is available.
  */
 
-describe('Health API', () => {
+const shouldSkip = process.env.CI === 'true' || !process.env.TEST_API_URL;
+
+describe.skipIf(shouldSkip)('Health API', () => {
   const baseUrl = process.env.TEST_API_URL || 'http://localhost:3000';
 
   describe('GET /api/health', () => {
