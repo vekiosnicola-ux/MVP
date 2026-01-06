@@ -9,7 +9,7 @@
 
 ### 1. Database ✅
 - ✅ Supabase connection verified
-- ✅ Database accessible: `https://fevouizqcuvahrdtwoif.supabase.co`
+- ✅ Database accessible: `https://your-project-id.supabase.co`
 - ✅ Tables accessible and working
 - ✅ Test utilities configured
 
@@ -25,7 +25,7 @@
 - ✅ Next.js config updated
 - ✅ Test endpoint created: `/api/test-sentry`
 
-**Your Sentry DSN**: `https://b31c425c25bf79b4e6ea25366133fe92@o4510661992841216.ingest.de.sentry.io/4510661999657040`
+**Your Sentry DSN**: `https://your-sentry-dsn-here@o[org-id].ingest.sentry.io/[project-id]`
 
 ### 3. Vercel Analytics ✅
 - ✅ Package installed: `@vercel/analytics`
@@ -82,13 +82,13 @@ curl http://localhost:3000/api/test-sentry?type=message
 Add these in GitHub → Settings → Secrets and variables → Actions:
 
 1. **NEXT_PUBLIC_SUPABASE_URL**
-   - Value: `https://fevouizqcuvahrdtwoif.supabase.co`
+   - Value: `https://your-project-id.supabase.co`
 
 2. **NEXT_PUBLIC_SUPABASE_ANON_KEY**
-   - Value: `sb_publishable_eD5SkLCA-MQjCV_UvfdZ7g_uNHxIFTB`
+   - Value: `your-supabase-anon-key-here`
 
 3. **SENTRY_DSN** (optional, for CI/CD error tracking)
-   - Value: `https://b31c425c25bf79b4e6ea25366133fe92@o4510661992841216.ingest.de.sentry.io/4510661999657040`
+   - Value: `https://your-sentry-dsn-here@o[org-id].ingest.sentry.io/[project-id]`
 
 ---
 
@@ -98,12 +98,12 @@ Your `.env.local` now has:
 
 ```bash
 # Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://fevouizqcuvahrdtwoif.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_eD5SkLCA-MQjCV_UvfdZ7g_uNHxIFTB
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key-here
 
 # Sentry
-SENTRY_DSN=https://b31c425c25bf79b4e6ea25366133fe92@o4510661992841216.ingest.de.sentry.io/4510661999657040
-NEXT_PUBLIC_SENTRY_DSN=https://b31c425c25bf79b4e6ea25366133fe92@o4510661992841216.ingest.de.sentry.io/4510661999657040
+SENTRY_DSN=https://your-sentry-dsn-here@o[org-id].ingest.sentry.io/[project-id]
+NEXT_PUBLIC_SENTRY_DSN=https://your-sentry-dsn-here@o[org-id].ingest.sentry.io/[project-id]
 
 # AI Keys (already configured)
 ANTHROPIC_API_KEY=...

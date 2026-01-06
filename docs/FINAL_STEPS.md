@@ -51,17 +51,17 @@ curl http://localhost:3000/api/test-sentry?type=error
 
    **Secret 1:**
    - Name: `NEXT_PUBLIC_SUPABASE_URL`
-   - Value: `https://fevouizqcuvahrdtwoif.supabase.co`
+   - Value: `https://your-project-id.supabase.co`
    - Click **Add secret**
 
    **Secret 2:**
    - Name: `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - Value: `sb_publishable_eD5SkLCA-MQjCV_UvfdZ7g_uNHxIFTB`
+   - Value: `your-supabase-anon-key-here`
    - Click **Add secret**
 
    **Secret 3 (Optional):**
    - Name: `SENTRY_DSN`
-   - Value: `https://b31c425c25bf79b4e6ea25366133fe92@o4510661992841216.ingest.de.sentry.io/4510661999657040`
+   - Value: `https://your-sentry-dsn-here@o[org-id].ingest.sentry.io/[project-id]`
    - Click **Add secret**
 
 ---

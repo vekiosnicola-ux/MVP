@@ -9,7 +9,7 @@
 
 ### Database ✅
 - **Status**: Connected and Verified
-- **URL**: `https://fevouizqcuvahrdtwoif.supabase.co`
+- **URL**: `https://your-project-id.supabase.co`
 - **Connection**: ✅ Working
 - **Tables**: ✅ Accessible
 
