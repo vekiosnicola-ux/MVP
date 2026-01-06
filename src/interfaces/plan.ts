@@ -25,6 +25,8 @@ export interface Plan {
   id: string;
   version: string;
   taskId: string;
+  approach: string;
+  reasoning: string;
   steps: PlanStep[];
   estimatedDuration: number;
   risks: Risk[];

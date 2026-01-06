@@ -3,6 +3,7 @@ import { recordApprovalPattern } from '../db/patterns';
 import { createPlan, updatePlanStatus } from '../db/plans';
 import { createResult } from '../db/results';
 import { createTask, updateTaskStatus } from '../db/tasks';
+// import { constitutionEnforcer } from '../governance/constitution-enforcer';
 import { Decision } from '../validators/decision';
 import { Plan } from '../validators/plan';
 import { Result } from '../validators/result';
@@ -27,37 +28,62 @@ export class WorkflowEngine {
     // Create task in DB
     await createTask(task);
 
-    // Transition: null → task_created → awaiting_proposals
+    // Initial state transition
+    // Initial state transition: null -> task_created
+    // Note: State machine handles the null check for CREATE
     const createResult = await this.executeTransition(null, 'CREATE', { taskId: task.id });
     if (!createResult.success) {
-      throw new Error(`Failed to create task: ${createResult.error}`);
+      console.error('[WorkflowEngine] Failed initial transition:', createResult.error);
+      return { taskId: task.id, transition: createResult };
     }
 
+    // Transition: task_created -> awaiting_proposals (Planning)
     const planningResult = await this.executeTransition('task_created', 'START_PLANNING', { taskId: task.id });
-    if (!planningResult.success) {
-      throw new Error(`Failed to start planning: ${planningResult.error}`);
-    }
 
-    // Update DB status
-    await updateTaskStatus(task.id, 'planning');
+    if (planningResult.success) {
+      await updateTaskStatus(task.id, 'planning');
+    } else {
+      console.error('[WorkflowEngine] Failed to start planning:', planningResult.error);
+    }
 
     return { taskId: task.id, transition: planningResult };
   }
 
   /**
-   * Process a task: generate proposals and transition to awaiting_human_decision
+   * Process a task (generate proposals via AI or Manual)
+   * Formerly proposePlans
    */
-  async processTask(taskId: string, feedback?: string): Promise<TransitionResult> {
-    const { getTask } = await import('../db/tasks');
-    const { proposalGenerator } = await import('../agents/proposal-generator');
-
-    // eslint-disable-next-line no-console
-    console.log('[WorkflowEngine] processTask started for:', taskId, feedback ? 'with feedback' : '');
+  async processTask(taskId: string): Promise<TransitionResult> {
+    const { getTask } = await import('@/core/db/tasks'); // Dynamic import to avoid cycles
 
     const taskRow = await getTask(taskId);
     if (!taskRow) throw new Error('Task not found');
 
-    const currentState = taskStatusToWorkflowState(taskRow.status);
+    let currentState = taskStatusToWorkflowState(taskRow.status);
+
+    // Auto-recover task state if needed
+    if (currentState === 'task_created') {
+      console.log(`[WorkflowEngine] Auto-recovering task ${taskId} from pending to planning`);
+      // Pending -> Planning
+      const transition = await this.executeTransition(currentState, 'START_PLANNING', { taskId });
+      if (transition.success) {
+        await updateTaskStatus(taskId, 'planning');
+        currentState = 'awaiting_proposals';
+      } else {
+        throw new Error(`Failed to transition task to planning: ${transition.error}`);
+      }
+    } else if (currentState === 'plan_rejected' || currentState === 'failed') {
+      // Rejected/Failed -> Planning (Retry)
+      const transition = await this.executeTransition(currentState, 'RETRY', { taskId });
+      if (transition.success) {
+        await updateTaskStatus(taskId, 'planning');
+        currentState = 'awaiting_proposals';
+      } else {
+        throw new Error(`Failed to retry task: ${transition.error}`);
+      }
+    }
+
+    const { planningAgent } = await import('@/core/agents/planning-agent');
 
     // Transform TaskRow to Task interface
     const task: Task = {
@@ -70,32 +96,22 @@ export class WorkflowEngine {
       metadata: taskRow.metadata || undefined
     };
 
-    // eslint-disable-next-line no-console
-    console.log('[WorkflowEngine] Generating proposals for task:', task.id);
-
-    // Generate proposals (AI work)
-    const plans = await proposalGenerator.generateProposals(task, feedback);
-
-    // eslint-disable-next-line no-console
-    console.log('[WorkflowEngine] Generated', plans.length, 'plans');
-    // eslint-disable-next-line no-console
-    console.log('[WorkflowEngine] First plan ID:', plans[0]?.id);
+    // Generate plans
+    const plans = await planningAgent.generatePlans(task);
 
     // Save plans to DB
+    const { createPlan } = await import('../db/plans');
     for (const plan of plans) {
-      // eslint-disable-next-line no-console
-      console.log('[WorkflowEngine] Saving plan:', plan.id);
-      // eslint-disable-next-line no-console
-      console.log('[WorkflowEngine] Plan steps:', plan.steps.length);
-      // eslint-disable-next-line no-console
-      console.log('[WorkflowEngine] First step:', JSON.stringify(plan.steps[0], null, 2));
       try {
         await createPlan(plan);
+      } catch (error) {
+        // Check if error is due to plan ALREADY existing (idempotency key violation)
+        // If so, we might skip. But createPlan usually inserts.
+        // Assuming createPlan throws if duplicate ID.
+        // For MVP, we'll log and rethrow.
+        const saveErr = error as Error;
         // eslint-disable-next-line no-console
-        console.log('[WorkflowEngine] Plan saved:', plan.id);
-      } catch (saveErr) {
-        const errMsg = saveErr instanceof Error ? saveErr.message : String(saveErr);
-        console.error('[WorkflowEngine] Failed to save plan:', plan.id, '- Error:', errMsg);
+        console.error(`[WorkflowEngine] Failed to save plan ${plan.id}:`, saveErr.message);
         throw saveErr;
       }
     }
@@ -104,6 +120,21 @@ export class WorkflowEngine {
     const result = await this.executeTransition(currentState, 'PROPOSALS_READY', { taskId });
     if (result.success) {
       await updateTaskStatus(taskId, 'awaiting_human_decision');
+
+      // ----------------------------------------------------------------------
+      // AUTOPILOT CHECK
+      // ----------------------------------------------------------------------
+      // Check if the primary plan (index 0) qualifies for Autopilot
+      /* 
+      if (plans.length > 0 && plans[0]) {
+        const primaryPlan = plans[0];
+        const eligibility = await constitutionEnforcer.checkAutopilotEligibility(task, primaryPlan);
+
+        if (eligibility.eligible) {
+          // ... Autopilot logic ...
+        }
+      }
+      */
     }
 
     return result;
@@ -237,6 +268,8 @@ export class WorkflowEngine {
       id: planRow.plan_id,
       taskId: planRow.task_id,
       version: planRow.version,
+      approach: planRow.approach || 'Standard', // Fallback for old records
+      reasoning: planRow.reasoning || 'Legacy plan',
       steps: planRow.steps,
       estimatedDuration: planRow.estimated_duration,
       risks: planRow.risks || [],

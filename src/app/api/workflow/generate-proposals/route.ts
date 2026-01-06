@@ -4,14 +4,14 @@ import { workflowEngine } from '@/core/orchestrator/workflow';
 
 export async function POST(request: Request) {
     try {
-        const { taskId, feedback } = await request.json();
+        const { taskId } = await request.json();
 
         if (!taskId) {
             return NextResponse.json({ error: 'taskId is required' }, { status: 400 });
         }
 
         // Trigger the workflow engine to process the task and generate proposals
-        await workflowEngine.processTask(taskId, feedback);
+        await workflowEngine.processTask(taskId);
 
         return NextResponse.json({
             status: 'proposals_generated',

@@ -10,6 +10,8 @@ describe('ExecutionAgent', () => {
     id: 'plan-test-1234',
     taskId: 'task-test-5678',
     version: '1.0.0',
+    approach: 'Test Approach',
+    reasoning: 'Testing the agent',
     steps: [
       {
         id: 'step-1',

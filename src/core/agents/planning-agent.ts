@@ -13,6 +13,7 @@ import { getPatternStats, getMostSuccessfulApproach, type PatternStats } from '.
 
 import { claudeClient } from './claude-client';
 import { groqClient } from './groq-client';
+import { tools } from '../utils/agent-tools';
 
 // ============================================================================
 // Types
@@ -45,8 +46,14 @@ interface GeneratedProposals {
 // Prompt Templates
 // ============================================================================
 
-const SYSTEM_PROMPT = `You are an expert software architect and development lead.
-Your job is to analyze development tasks and create detailed implementation plans.
+const SYSTEM_PROMPT = `You are an Expert Software Architect acting as the "Active Architect" for the Aura system.
+Your goal is to design high-quality, robust, and maintainable software solutions.
+
+PERSONALITY: "Active Architect with Silent Hand discipline."
+- Challenge decisions when there is a cheaper, safer, or simpler path.
+- Present 2–3 options only when it materially changes the outcome.
+- Speak in tight, high-signal language. No filler, no theatrics.
+- Optimize for compounding velocity: reusable patterns, fewer one-off abstractions.
 
 You work with a team of specialized agents:
 - orchestrator: Coordinates the overall workflow
@@ -120,16 +127,18 @@ interface PlanningContext {
   patternStats: PatternStats | null;
   bestApproach: string | null;
   feedback?: string;
+  repoContext?: string;
 }
 
 function createPlanningPrompt(task: Task, context: PlanningContext): string {
   const overridesContext = formatOverridesContext(context.overrides);
   const patternContext = formatPatternContext(context.patternStats, context.bestApproach);
   const feedbackContext = context.feedback ? `\nUSER FEEDBACK ON PREVIOUS PROPOSALS:\n${context.feedback}\nPlease adjust your new proposals to address this feedback.\n` : '';
+  const repoContext = context.repoContext ? `\nREPOSITORY CONTEXT:\n${context.repoContext}\n` : '';
 
   return `You are a Senior Coder Agent. Your goal is to take initiative and propose a complete, high-quality development plan.
   
-Generate 2 detailed implementation proposals for this task:
+Generate 2 detailed implementation proposals for this task (match the "Active Architect" personality):
 
 TASK DETAILS:
 - Type: ${task.type}
@@ -144,14 +153,14 @@ CONSTRAINTS:
 - Requires approval: ${task.constraints.requiresApproval}
 - Breaking changes allowed: ${task.constraints.breakingChangesAllowed}
 - Min test coverage: ${task.constraints.testCoverageMin}%
-${overridesContext}${patternContext}${feedbackContext}
-Generate exactly 2 proposals:
+${overridesContext}${patternContext}${feedbackContext}${repoContext}
+Generate exactly 2 proposals (unless one is clearly superior, then just 1 robust one is fine, but for now sticking to 2 options is good practice):
 1. A STANDARD approach - thorough, safe, follows best practices. This is your primary recommendation.
 2. A FAST-TRACK approach - minimal viable implementation, faster delivery.
 
 For each proposal, provide:
 - approach: A short name for the approach (e.g., "Standard Implementation", "Fast-Track MVP")
-- reasoning: Why this approach is suitable, including how it addresses specific task requirements and any previous feedback. (3-4 sentences)
+- reasoning: Why this approach is suitable. Be concise (Silent Hand). Explain "Why this, why not alternatives?".
 - steps: Array of implementation steps with:
   - agent: Which agent handles this (orchestrator|architect|developer|database|reviewer|tester|devops|documenter)
   - action: What specifically to do
@@ -202,6 +211,24 @@ export class PlanningAgent {
       bestApproach: null,
       feedback,
     };
+
+    // Auto-investigate repository context
+    try {
+      const fileList = await tools.list_dir.execute({ path: '.' });
+      const pkgJson = await tools.read_file.execute({ path: 'package.json' });
+
+      planningContext.repoContext = `
+FILE STRUCTURE (Root):
+${fileList.slice(0, 1000)}
+
+PACKAGE.JSON:
+${pkgJson.slice(0, 2000)}
+`;
+      // eslint-disable-next-line no-console
+      console.log('[PlanningAgent] Auto-investigated repo structure and package.json');
+    } catch (err) {
+      console.warn('[PlanningAgent] Auto-investigation failed:', err);
+    }
 
     // Fetch relevant human overrides using similarity matching
     try {
@@ -348,6 +375,8 @@ export class PlanningAgent {
       id: planId,
       taskId: task.id,
       version: '1.0.0',
+      approach: proposal.approach,
+      reasoning: proposal.reasoning,
       steps,
       estimatedDuration: proposal.estimatedDuration,
       risks,
@@ -400,6 +429,8 @@ export class PlanningAgent {
       id: `plan-${crypto.randomUUID()}`,
       taskId: task.id,
       version: '1.0.0',
+      approach: 'Standard Implementation',
+      reasoning: 'Follows established patterns and best practices for reliability.',
       steps: [
         {
           id: 'step-001',
@@ -456,6 +487,8 @@ export class PlanningAgent {
       id: `plan-${crypto.randomUUID()}`,
       taskId: task.id,
       version: '1.0.0',
+      approach: 'Fast-Track MVP',
+      reasoning: 'Optimized for speed and immediate feedback.',
       steps: [
         {
           id: 'step-001',

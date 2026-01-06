@@ -18,7 +18,9 @@ export const DecisionSchema = z.object({
   proposals: z.array(ProposalSchema).min(1),
   selectedOption: z.number().int().min(0),
   rationale: z.string().min(10),
-  overrides: z.array(z.string()).optional()
+  overrides: z.array(z.string()).optional(),
+  confidenceScore: z.number().min(0).max(1).optional(),
+  timestamp: z.string().datetime().optional()
 });
 
 export type Decision = z.infer<typeof DecisionSchema>;

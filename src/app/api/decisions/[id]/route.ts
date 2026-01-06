@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 import { getDecision, deleteDecision } from '@/core/db/decisions';
 
 export async function GET(

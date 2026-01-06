@@ -34,9 +34,11 @@ const PlanMetadataSchema = z.object({
 }).optional();
 
 export const PlanSchema = z.object({
-  id: z.string().regex(/^plan-[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}$/),
+  id: z.string().regex(/^plan-[a-z0-9-]{36}|plan-[a-z0-9]+$/), // allow uuid or simple id
   version: z.string().regex(/^\d+\.\d+\.\d+$/),
-  taskId: z.string().regex(/^task-[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}$/),
+  approach: z.string(),
+  reasoning: z.string(),
+  taskId: z.string().regex(/^task-[a-z0-9-]{36}|task-[a-z0-9]+$/),
   steps: z.array(PlanStepSchema).min(1),
   estimatedDuration: z.number().int().min(30),
   risks: z.array(RiskSchema),

@@ -132,6 +132,7 @@ This project is in **initial setup phase**. We're creating foundational document
 - **DECISIONS.md** — Architectural decision log
 - **README.md** — Project overview for external readers
 - **docs/architecture.md** — Detailed technical architecture
+- **docs/agent-workflows.md** — Meta-prompts for agentic workflows
 
 ## Questions to Ask
 

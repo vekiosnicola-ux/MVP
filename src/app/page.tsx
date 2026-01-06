@@ -1,13 +1,15 @@
 'use client';
 
-import { CheckCircle, Clock, ListTodo, TrendingUp, AlertCircle } from 'lucide-react';
+import { CheckCircle, Clock, ListTodo, TrendingUp, AlertCircle, Sparkles } from 'lucide-react';
 import * as React from 'react';
 
 import { StatCard } from '@/components/stats/stat-card';
 import { TaskList } from '@/components/tasks/task-list';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import type { TaskRow } from '@/interfaces/task';
 import { tasksApi } from '@/lib/api';
+import { AgentChatDialog } from '@/components/chat/agent-chat-dialog';
 
 export default function DashboardPage(): React.ReactElement {
   const [tasks, setTasks] = React.useState<TaskRow[]>([]);
@@ -68,14 +70,40 @@ export default function DashboardPage(): React.ReactElement {
     );
   }
 
+  const [isChatOpen, setIsChatOpen] = React.useState(false);
+  const triggerRefresh = React.useCallback(() => {
+    setLoading(true);
+    // Re-fetch tasks
+    tasksApi.list().then(setTasks).finally(() => setLoading(false));
+  }, []);
+
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-6 space-y-6 relative">
+      <AgentChatDialog
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        onTaskCreated={() => {
+          // Refresh tasks when a new one is created via chat
+          triggerRefresh();
+        }}
+      />
+
       {/* Header */}
-      <div>
-        <h1 className="text-4xl font-bold text-text-primary mb-2">Mission Control</h1>
-        <p className="text-text-secondary">
-          Aura AI development workflow dashboard
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-4xl font-bold text-text-primary mb-2">Mission Control - Agent Active</h1>
+          <p className="text-text-secondary">
+            Aura AI development workflow dashboard
+          </p>
+        </div>
+        <Button
+          onClick={() => setIsChatOpen(true)}
+          size="sm"
+          className="bg-accent-primary hover:bg-accent-primary/90 text-white shadow-lg shadow-accent-primary/20 h-10 w-10 p-0 transition-all hover:scale-105 active:scale-95 gap-2"
+        >
+          <Sparkles className="w-4 h-4" />
+          Talk to Aura
+        </Button>
       </div>
 
       {/* Stats Grid */}

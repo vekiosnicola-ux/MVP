@@ -76,6 +76,19 @@ Ship quickly and iterate. Get real user feedback ASAP. Fast development cycles.
 
 *Coming soon — project is in initial setup phase*
 
+## Security & Configuration
+
+### API Keys
+Copy `.env.example` to `.env` and fill in your keys.
+
+- **System Keys** (`SUPABASE_*`): Belong to the project infrastructure. Shared across the team/environment.
+- **User Keys** (`ANTHROPIC_API_KEY`, `GROQ_API_KEY`): Belong to YOU. Do not commit these.
+
+### Dangerous Modes
+By default, the agent runs in `EXECUTION_MODE="mock"`.
+- **Mock Mode**: Safe. Simulates actions.
+- **Real Mode**: **DANGER**. The agent can edit files and run shell commands. Ensure you have git committed your work before running in this mode.
+
 ## Documentation
 
 - **[CLAUDE.md](./CLAUDE.md)** — How Claude Code works on this project

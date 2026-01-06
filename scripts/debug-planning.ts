@@ -10,7 +10,7 @@ async function main() {
   const engine = new WorkflowEngine();
 
   console.log(`Manually triggering planning for task: ${taskId}`);
-  
+
   try {
     const result = await engine.processTask(taskId);
     console.log('Transition Result:', JSON.stringify(result, null, 2));

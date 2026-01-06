@@ -1,25 +1,35 @@
 import { NextResponse } from 'next/server';
 
+import { getSupabaseClient } from '@/core/db/client';
+
 /**
  * Health check endpoint
  * Returns 200 OK if the service is running
- * Validates environment configuration
+ * Validates environment configuration and DB connectivity
  */
 export async function GET() {
   try {
+    const supabase = getSupabaseClient();
+
+    // Check DB connection
+    const { error: dbError } = await supabase.from('tasks').select('count', { count: 'exact', head: true });
+    const isDbConnected = !dbError;
+
     // Basic health check
     const health = {
-      status: 'healthy',
+      status: isDbConnected ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || 'development',
       version: process.env.npm_package_version || '0.1.0',
       checks: {
         api: true,
         env: checkEnvironment(),
+        database: isDbConnected,
       },
+      errors: dbError ? { database: dbError.message } : undefined
     };
 
-    return NextResponse.json(health, { status: 200 });
+    return NextResponse.json(health, { status: isDbConnected ? 200 : 503 });
   } catch (error) {
     return NextResponse.json(
       {
@@ -37,7 +47,9 @@ export async function GET() {
  * Returns true if at least NODE_ENV is set
  */
 function checkEnvironment(): boolean {
-  // During initial setup, only NODE_ENV is required
-  // Other env vars (ANTHROPIC_API_KEY, SUPABASE_*) are optional
-  return !!process.env.NODE_ENV;
+  return !!(
+    process.env.NODE_ENV &&
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
 }

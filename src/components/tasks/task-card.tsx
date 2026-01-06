@@ -124,7 +124,11 @@ export function TaskCard({ task }: TaskCardProps): React.ReactElement {
     }
   };
 
-  const showProcessButton = task.status === 'planning';
+  const showProcessButton =
+    task.status === 'planning' ||
+    task.status === 'pending' ||
+    task.status === 'failed' ||
+    task.status === 'rejected';
 
   return (
     <motion.div variants={cardVariants} initial="rest" whileHover="hover">

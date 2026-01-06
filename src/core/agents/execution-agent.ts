@@ -15,6 +15,11 @@ import {
   type Snapshot,
 } from '../sandbox';
 
+import { groqClient } from './groq-client';
+import { claudeClient } from './claude-client';
+import { contextManager } from '../utils/context-manager';
+import { tools, getToolDefinitions } from '../utils/agent-tools';
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -72,6 +77,7 @@ export class ExecutionAgent {
   private progressCallbacks: ProgressCallback[] = [];
   private snapshotManager?: GitSnapshotManager;
   private commandExecutor?: CommandExecutor;
+  private shouldStop: boolean = false; // Flag to stop execution gracefully
 
   constructor(options: ExecutionOptions = {}) {
     this.options = {
@@ -148,9 +154,14 @@ export class ExecutionAgent {
     }
 
     try {
+      console.log(`[ExecutionAgent] Executing plan: ${plan.id} (${plan.steps.length} steps)`);
+
+      let runningSummary = '';
+
       for (let i = 0; i < plan.steps.length; i++) {
         const step = plan.steps[i];
         if (!step) continue;
+        if (this.shouldStop) break;
 
         // Circuit breaker check
         if (consecutiveFailures >= this.circuitBreaker.maxConsecutiveFailures) {
@@ -176,8 +187,15 @@ export class ExecutionAgent {
         }
 
         // Execute step with retry logic
-        const stepResult = await this.executeStepWithRetry(step);
+        const stepResult = await this.executeStepWithRetry(step, plan, runningSummary);
         stepResults.push(stepResult);
+
+        // Update running summary with this step's result
+        const stepLog = `Step: ${step.id} - ${step.action}
+Result: ${stepResult.status}
+Output: ${stepResult.validation.output?.slice(0, 500) || 'None'}`;
+
+        runningSummary = await contextManager.updateRunningSummary(runningSummary, stepLog);
 
         // Track consecutive failures for circuit breaker
         if (stepResult.status === 'failure') {
@@ -260,14 +278,14 @@ export class ExecutionAgent {
   /**
    * Execute a step with retry logic and timeout
    */
-  private async executeStepWithRetry(step: PlanStep): Promise<StepResult> {
+  private async executeStepWithRetry(step: PlanStep, plan: Plan, runningSummary: string): Promise<StepResult> {
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt <= this.circuitBreaker.maxRetries; attempt++) {
       try {
         // Execute with timeout
         const result = await this.executeWithTimeout(
-          () => this.executeStep(step),
+          () => this.executeStep(step, plan, runningSummary),
           this.circuitBreaker.stepTimeout
         );
 
@@ -352,17 +370,125 @@ export class ExecutionAgent {
    * In real mode: runs validation command
    * In mock mode: simulates with optional failure rate
    */
-  private async executeStep(step: PlanStep): Promise<StepResult> {
+  private async executeStep(step: PlanStep, plan: Plan, contextSummary: string = ''): Promise<StepResult> {
+    console.log(`[ExecutionAgent] Starting step ${step.id}: ${step.action}`);
+
+    // Check if we're in real mode
     if (this.options.mode === 'real' && this.commandExecutor) {
-      return this.executeRealStep(step);
+      return this.executeRealStep(step, plan, contextSummary);
     }
     return this.executeMockStep(step);
   }
 
   /**
+   * Perform the action using AI (System 3)
+   */
+  private async performAction(step: PlanStep, plan: Plan, contextSummary: string): Promise<void> {
+    // eslint-disable-next-line no-console
+    console.log(`[ExecutionAgent] Performing action: ${step.action}`);
+
+    const systemPrompt = `You are an expert autonomous developer agent.
+Your goal is to execute the following step in a software development plan.
+
+PLAN CONTEXT:
+Goal: ${plan.approach}
+Reasoning: ${plan.reasoning}
+
+PREVIOUS STEPS SUMMARY:
+${contextSummary || 'No previous steps executed.'}
+
+CURRENT STEP:
+Action: ${step.action}
+Inputs: ${step.inputs?.join(', ') || 'None'}
+Outputs: ${step.outputs?.join(', ') || 'None'}
+
+Review the goal and previous context. 
+If the previous steps failed or produced unexpected results, adjust your approach.
+Use the available tools to complete the action.
+
+AVAILABLE TOOLS:
+${getToolDefinitions()}
+
+To use a tool, output a JSON object in this exact format (no other text):
+{"tool": "tool_name", "args": { ... }}
+
+Example:
+{"tool": "write_file", "args": { "path": "src/hello.ts", "content": "console.log('hello')" }}
+
+Create the necessary files or run commands to fulfill the action.`;
+
+    const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
+      { role: 'user', content: `Execute this step: ${step.action}` }
+    ];
+
+    // Simple loop for tool use (limit to 5 turns per step to prevent loops)
+    for (let i = 0; i < 5; i++) {
+      let content = '';
+      // Prioritize Claude for execution (better coding capabilities)
+      if (claudeClient.isConfigured()) {
+        const response = await claudeClient.chat(messages, { system: systemPrompt });
+        content = response.content;
+      } else if (groqClient.isConfigured()) {
+        // Fallback to Groq if Claude is not configured
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const response = await groqClient.chat(messages as any, { system: systemPrompt });
+        content = response.content;
+      } else {
+        console.warn('[ExecutionAgent] No AI client configured, skipping action performance');
+        return;
+      }
+
+      // Parse tool call
+      try {
+        const cleanContent = content.trim();
+        // eslint-disable-next-line no-console
+        console.log(`[ExecutionAgent] LLM Content (Raw): ${cleanContent}`);
+
+        let jsonStr = '';
+        // 1. Try to find a code block
+        const codeBlockMatch = cleanContent.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+        if (codeBlockMatch && codeBlockMatch[1]) {
+          jsonStr = codeBlockMatch[1];
+        } else {
+          // 2. Fallback: Find the first '{' and last '}'
+          const firstBrace = cleanContent.indexOf('{');
+          const lastBrace = cleanContent.lastIndexOf('}');
+          if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+            jsonStr = cleanContent.substring(firstBrace, lastBrace + 1);
+          }
+        }
+
+        if (jsonStr) {
+          const toolCall = JSON.parse(jsonStr);
+          const toolName = toolCall.tool as keyof typeof tools;
+          if (tools[toolName]) {
+            console.log(`[ExecutionAgent] Executing tool ${toolName}`);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const result = await tools[toolName].execute(toolCall.args as any);
+
+            messages.push({ role: 'assistant', content });
+            messages.push({ role: 'user', content: `Tool Output: ${result}` });
+            continue;
+          }
+        } else {
+          // Check if it's just talking without a tool
+          // eslint-disable-next-line no-console
+          console.log('[ExecutionAgent] No tool call found in response');
+          break;
+        }
+      } catch (e) {
+        console.warn('[ExecutionAgent] Error parsing/executing tool:', e);
+      }
+
+      // If we got here, no tool was executed or we're done
+      break;
+    }
+  }
+
+  /**
    * Execute a step in real mode - runs the validation command
    */
-  private async executeRealStep(step: PlanStep): Promise<StepResult> {
+  private async executeRealStep(step: PlanStep, plan: Plan, contextSummary: string): Promise<StepResult> {
     const startTime = Date.now();
     const command = step.validation.command;
 
@@ -382,6 +508,10 @@ export class ExecutionAgent {
 
     // eslint-disable-next-line no-console
     console.log(`[ExecutionAgent] Running: ${command}`);
+    // 1. Perform Action (The Magic)
+    await this.performAction(step, plan, contextSummary);
+
+    // 2. Validate
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const result = await this.commandExecutor!.execute(command);
     const duration = Math.round((Date.now() - startTime) / 1000);

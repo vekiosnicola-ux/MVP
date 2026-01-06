@@ -1,7 +1,17 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { PlanningAgent } from '@/core/agents/planning-agent';
 import type { Task } from '@/interfaces/task';
+
+// Mock DB dependencies to avoid network calls during tests
+vi.mock('@/core/db/overrides', () => ({
+  getRelevantOverridesWithSimilarity: vi.fn().mockResolvedValue([]),
+}));
+
+vi.mock('@/core/db/patterns', () => ({
+  getPatternStats: vi.fn().mockResolvedValue(null),
+  getMostSuccessfulApproach: vi.fn().mockResolvedValue(null),
+}));
 
 describe('PlanningAgent', () => {
   let agent: PlanningAgent;
@@ -31,6 +41,7 @@ describe('PlanningAgent', () => {
   };
 
   beforeEach(() => {
+    vi.clearAllMocks();
     agent = new PlanningAgent();
     // Enable mock fallback for tests (since we don't have Claude API in tests)
     agent.setMockFallback(true);
