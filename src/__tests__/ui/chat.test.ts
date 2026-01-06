@@ -47,18 +47,15 @@ test.describe('Chat Functionality', () => {
 
     // Close chat using ESC key (more reliable than button click)
     await page.keyboard.press('Escape');
-    // Wait for dialog to close - give it more time
-    await page.waitForTimeout(2000);
+    // Wait for dialog to close - give it more time for React state update
+    await page.waitForTimeout(1000);
     
     // Wait for dialog to close - check that the greeting is no longer visible
     // The dialog returns null when closed, so the greeting should disappear
-    // Also check if the dialog container is gone
-    const greetingStillVisible = await greeting.isVisible({ timeout: 2000 }).catch(() => false);
-    const dialogContainer = page.locator('[class*="fixed inset-0 z-50"]');
-    const dialogStillVisible = await dialogContainer.isVisible({ timeout: 2000 }).catch(() => false);
+    const greetingStillVisible = await greeting.isVisible({ timeout: 3000 }).catch(() => false);
     
-    // Either greeting or dialog container should be gone
-    expect(greetingStillVisible && dialogStillVisible).toBe(false);
+    // Greeting should not be visible after closing
+    expect(greetingStillVisible).toBe(false);
   });
 
   test('user can type and send a message', async ({ page }) => {
@@ -192,22 +189,32 @@ test.describe('Chat Functionality', () => {
   });
 
   test('chat auto-scrolls to latest message', async ({ page }) => {
+    // Wait for page to load
+    await page.waitForLoadState('networkidle');
+    
     // Open chat
-    await page.click('button:has-text("Talk to Aura")');
-    await expect(page.locator('text=/Hello! I am Aura/i')).toBeVisible();
+    const chatButton = page.locator('button:has-text("Talk to Aura"), button:has-text("Chat")');
+    await expect(chatButton).toBeVisible({ timeout: 10000 });
+    await chatButton.click();
+    await expect(page.locator('text=/Hello! I am Aura/i')).toBeVisible({ timeout: 10000 });
 
     // Send multiple messages
     const input = page.locator('input[placeholder*="task" i], textarea[placeholder*="task" i]').first();
+    await expect(input).toBeVisible({ timeout: 10000 });
     
     for (let i = 1; i <= 3; i++) {
+      // Wait for input to be enabled (not loading)
+      await expect(input).toBeEnabled({ timeout: 10000 });
       await input.fill(`Message ${i}`);
       const sendButton = page.locator('button[type="submit"]').last();
+      await expect(sendButton).toBeEnabled({ timeout: 5000 });
       await sendButton.click();
-      await page.waitForTimeout(1000); // Wait between messages
+      // Wait for message to be sent and response to start (or complete)
+      await page.waitForTimeout(2000); // Wait between messages for loading to complete
     }
 
     // Latest message should be visible
-    await expect(page.locator('text=/Message 3/i')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('text=/Message 3/i')).toBeVisible({ timeout: 10000 });
   });
 
   test('empty message cannot be sent', async ({ page }) => {

@@ -70,8 +70,18 @@ test.describe('Error Scenarios', () => {
 
     // Should show dashboard (even with empty task list)
     // Look for dashboard heading or stats showing 0
-    const dashboardContent = page.locator('h1').or(page.locator('text=/Mission Control/i')).or(page.locator('text=/Total Tasks/i')).or(page.locator('[class*="stat"]'));
-    await expect(dashboardContent.first()).toBeVisible({ timeout: 10000 });
+    const h1 = page.locator('h1');
+    const missionControl = page.locator('text=/Mission Control/i');
+    const totalTasks = page.locator('text=/Total Tasks/i');
+    const stats = page.locator('[class*="stat"]');
+    
+    // At least one of these should be visible
+    const hasH1 = await h1.isVisible({ timeout: 5000 }).catch(() => false);
+    const hasMissionControl = await missionControl.isVisible({ timeout: 5000 }).catch(() => false);
+    const hasTotalTasks = await totalTasks.isVisible({ timeout: 5000 }).catch(() => false);
+    const hasStats = await stats.first().isVisible({ timeout: 5000 }).catch(() => false);
+    
+    expect(hasH1 || hasMissionControl || hasTotalTasks || hasStats).toBe(true);
   });
 
   test('handles chat API error', async ({ page, context }) => {
