@@ -75,13 +75,14 @@ jobs:
       - name: Build application
         run: npm run build
         env:
+          NODE_ENV: production
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
 
       - name: Start server and run E2E tests
         run: |
-          # Start server in background
-          npm run start > /tmp/server.log 2>&1 &
+          # Start standalone server in background (production mode uses standalone)
+          NODE_ENV=production node .next/standalone/server.js > /tmp/server.log 2>&1 &
           SERVER_PID=$!
           
           # Wait for server to be ready
@@ -144,6 +145,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
+          NODE_ENV: production
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
 

@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
         };
 
         // Create task through workflow engine (handles state transitions)
-        const { taskId: createdTaskId, transition } = await workflowEngine.createTaskWorkflow(task);
+        const { taskId: createdTaskId } = await workflowEngine.createTaskWorkflow(task);
 
         // Process the task to generate proposals (moves to awaiting_human_decision)
         try {
