@@ -14,9 +14,7 @@ export default function TaskDetailPage() {
   const router = useRouter();
   const taskId = params.id as string;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [task, setTask] = useState<any>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [rationale, setRationale] = useState('');
@@ -67,7 +65,6 @@ export default function TaskDetailPage() {
               proposals: plans.map(p => ({
                 approach: p.approach,
                 reasoning: p.reasoning,
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 tradeoffs: { pros: [], cons: [], risks: p.risks.map((r: any) => r.description) }
               }))
             },
@@ -133,7 +130,6 @@ export default function TaskDetailPage() {
               <p className="text-muted-foreground italic">No plans proposed yet.</p>
             ) : (
               <div className="space-y-6">
-                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                 {plans.map((plan: any) => (
                   <Card key={plan.plan_id} className={plan.status === 'approved' ? 'border-primary shadow-md' : ''}>
                     <CardHeader>
@@ -149,7 +145,6 @@ export default function TaskDetailPage() {
                       <div>
                         <h4 className="text-sm font-semibold mb-2 uppercase tracking-wider text-muted-foreground">Steps</h4>
                         <ol className="list-decimal list-inside space-y-1 text-sm">
-                          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                           {plan.steps.map((step: any, i: number) => (
                             <li key={i} className="text-foreground">
                               {step.description}

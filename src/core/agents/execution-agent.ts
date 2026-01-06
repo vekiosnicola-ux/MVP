@@ -95,7 +95,6 @@ export class ExecutionAgent {
 
     // Initialize real execution components if in real mode
     if (this.options.mode === 'real') {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       this.snapshotManager = new GitSnapshotManager(this.options.workingDir!);
       this.commandExecutor = new CommandExecutor({
         cwd: this.options.workingDir,
@@ -114,7 +113,6 @@ export class ExecutionAgent {
     }
 
     if (mode === 'real') {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       this.snapshotManager = new GitSnapshotManager(this.options.workingDir!);
       this.commandExecutor = new CommandExecutor({
         cwd: this.options.workingDir,
@@ -430,7 +428,6 @@ Create the necessary files or run commands to fulfill the action.`;
         content = response.content;
       } else if (groqClient.isConfigured()) {
         // Fallback to Groq if Claude is not configured
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const response = await groqClient.chat(messages as any, { system: systemPrompt });
         content = response.content;
       } else {
@@ -463,7 +460,6 @@ Create the necessary files or run commands to fulfill the action.`;
           const toolName = toolCall.tool as keyof typeof tools;
           if (tools[toolName]) {
             console.log(`[ExecutionAgent] Executing tool ${toolName}`);
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const result = await tools[toolName].execute(toolCall.args as any);
 
             messages.push({ role: 'assistant', content });
@@ -512,7 +508,6 @@ Create the necessary files or run commands to fulfill the action.`;
     await this.performAction(step, plan, contextSummary);
 
     // 2. Validate
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const result = await this.commandExecutor!.execute(command);
     const duration = Math.round((Date.now() - startTime) / 1000);
 

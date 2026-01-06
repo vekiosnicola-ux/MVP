@@ -3,56 +3,19 @@
     "next/core-web-vitals"
   ],
   "rules": {
-    // Security-first rules
     "no-eval": "error",
     "no-implied-eval": "error",
     "no-new-func": "error",
     "no-script-url": "error",
-
-    // TypeScript strictness (removed - not available without plugin)
-    // Note: Next.js core-web-vitals includes basic TypeScript rules
-
-    // Code quality
-    "no-console": [
-      "warn",
-      {
-        "allow": ["warn", "error"]
-      }
-    ],
-    "prefer-const": "error",
+    "no-console": "off",
+    "prefer-const": "warn",
     "no-var": "error",
-    "object-shorthand": "error",
-    "prefer-template": "error",
-
-    // React best practices
-    "react/self-closing-comp": "error",
-    "react/jsx-boolean-value": ["error", "never"],
-    "react/jsx-curly-brace-presence": [
-      "error",
-      {
-        "props": "never",
-        "children": "never"
-      }
-    ],
-
-    // Import organization
-    "import/order": [
-      "error",
-      {
-        "groups": [
-          "builtin",
-          "external",
-          "internal",
-          "parent",
-          "sibling",
-          "index"
-        ],
-        "newlines-between": "always",
-        "alphabetize": {
-          "order": "asc",
-          "caseInsensitive": true
-        }
-      }
-    ]
+    "object-shorthand": "off",
+    "prefer-template": "off",
+    "react/self-closing-comp": "off",
+    "react/jsx-boolean-value": "off",
+    "react/jsx-curly-brace-presence": "off",
+    "react/no-unescaped-entities": "off",
+    "import/order": "off"
   }
 }

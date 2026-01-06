@@ -15,6 +15,12 @@ export default function DashboardPage(): React.ReactElement {
   const [tasks, setTasks] = React.useState<TaskRow[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [isChatOpen, setIsChatOpen] = React.useState(false);
+
+  const triggerRefresh = React.useCallback(() => {
+    setLoading(true);
+    tasksApi.list().then(setTasks).finally(() => setLoading(false));
+  }, []);
 
   React.useEffect(() => {
     async function loadTasks() {
@@ -69,13 +75,6 @@ export default function DashboardPage(): React.ReactElement {
       </div>
     );
   }
-
-  const [isChatOpen, setIsChatOpen] = React.useState(false);
-  const triggerRefresh = React.useCallback(() => {
-    setLoading(true);
-    // Re-fetch tasks
-    tasksApi.list().then(setTasks).finally(() => setLoading(false));
-  }, []);
 
   return (
     <div className="container mx-auto p-6 space-y-6 relative">

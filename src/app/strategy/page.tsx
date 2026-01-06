@@ -7,7 +7,6 @@ export default function StrategyPage() {
   const [topic, setTopic] = useState('');
   const [context, setContext] = useState('');
   const [loading, setLoading] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [advice, setAdvice] = useState<any>(null);
   const [error, setError] = useState('');
 
