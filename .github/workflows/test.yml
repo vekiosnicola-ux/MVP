@@ -32,7 +32,7 @@ jobs:
         continue-on-error: true
 
       - name: Run unit tests
-        run: npm run test -- --run
+        run: npm run test
         continue-on-error: true
         env:
           CI: 'true'
@@ -40,7 +40,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
 
       - name: Run unit tests with coverage
-        run: npm run test:coverage -- --run
+        run: npm run test:coverage
         continue-on-error: true
         env:
           CI: 'true'

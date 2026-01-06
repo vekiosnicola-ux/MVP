@@ -14,7 +14,7 @@
     "type-check": "tsc --noEmit",
     "test": "vitest --run",
     "test:watch": "vitest --watch",
-    "test:coverage": "vitest --coverage",
+    "test:coverage": "vitest --coverage --run",
     "test:coverage:ui": "vitest --coverage --ui",
     "test:ui": "playwright test",
     "test:ui:headed": "playwright test --headed",
